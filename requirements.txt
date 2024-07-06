@@ -1,1 +1,6 @@
 streamlit
+pandas
+io
+base64
+reportlab.lib.pagesizes
+reportlab.pdfgen
