@@ -1,5 +1,1 @@
 streamlit
-pandas
-io
-base64
-reportlab
