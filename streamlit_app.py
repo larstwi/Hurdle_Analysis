@@ -7,6 +7,7 @@ def load_data():
     data = pd.read_excel('data/Auswertungen.xlsx', index_col=0)
     return data
 
+"""
 # Funktion zum PDF-Export
 def to_pdf(df):
     buffer = BytesIO()
@@ -36,7 +37,7 @@ def to_pdf(df):
     c.save()
     buffer.seek(0)
     return buffer
-
+"""
 # Hauptlogik der Streamlit-App
 def main():
     st.title("400m Hürden Intervalldaten Filtern")
