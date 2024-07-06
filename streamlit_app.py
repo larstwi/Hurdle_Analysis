@@ -50,7 +50,7 @@ def main():
   
     athletes = st.sidebar.multiselect("Athlet wählen", options=data["Name"].unique(), default=data["Name"].unique())
     competitions = st.sidebar.multiselect("Wettkampf wählen", options=data["Wettkampf"].unique(), default=data["Wettkampf"].unique())
-    years = st.sidebar.multiselect("Jahr wählen", options=data["Jahr"].unique(), default=data["Jahr"].unique())
+    #years = st.sidebar.multiselect("Jahr wählen", options=data["Jahr"].unique(), default=data["Jahr"].unique())
     min_time = st.sidebar.slider("Minimale Zeit (Sekunden)", min_value=float(data["Zeit"].min()), max_value=float(data["Zeit"].max()), value=float(data["Zeit"].min()))
     max_time = st.sidebar.slider("Maximale Zeit (Sekunden)", min_value=float(data["Zeit"].min()), max_value=float(data["Zeit"].max()), value=float(data["Zeit"].max()))
 
