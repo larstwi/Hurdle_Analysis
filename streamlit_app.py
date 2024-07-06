@@ -63,7 +63,6 @@ def main():
         (data["Zeit"] <= max_time)
     ]
 
-    st.write("Gefilterte Daten:")
     st.dataframe(filtered_data)
 
     # Exportoptionen
