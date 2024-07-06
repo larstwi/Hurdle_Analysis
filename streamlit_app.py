@@ -4,7 +4,7 @@ import pandas as pd
 # Funktion zum Laden der Daten
 @st.cache
 def load_data():
-    data = pd.read_csv('data/Auswertungen.csv', index_col=0)
+    data = pd.read_csv('data/Auswertungen.csv')
     return data
 
 """
