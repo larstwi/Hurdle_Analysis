@@ -64,7 +64,7 @@ def main():
     ]
 
     st.write("Gefilterte Daten:")
-    st.dataframe(filtered_data[-1])
+    st.dataframe(filtered_data)
 
     # Exportoptionen
     st.header("Exportieren")
