@@ -40,7 +40,7 @@ def to_pdf(df):
 
 # Hauptlogik der Streamlit-App
 def main():
-    st.title("400m Hürden Intervalldaten Filtern")
+    st.title("Analyse 400m Hürden")
 
     # Daten laden
     data = load_data()
@@ -58,7 +58,7 @@ def main():
     filtered_data = data[
         (data["Name"].isin(athletes)) & 
         (data["Wettkampf"].isin(competitions)) & 
-        (data["Datum"].isin(years)) & 
+        (data["Jahr"].isin(years)) & 
         (data["Zeit"] >= min_time) & 
         (data["Zeit"] <= max_time)
     ]
