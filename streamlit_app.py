@@ -47,18 +47,7 @@ def main():
 
     # Filteroptionen
     st.sidebar.header("Filteroptionen")
-
-    start_date = st.sidebar.date_input("Start date", value=pd.to_datetime('2024-01-01'))
-    end_date = st.sidebar.date_input("End date", value=pd.to_datetime('2024-12-31'))
-
-    # Ensure end_date is not before start_date
-    if start_date > end_date:
-        st.sidebar.error("End date must fall after start date.")
-    else:
-        # Filter data based on the selected date range
-        mask = (data['Datum'] >= start_date) & (data['Datum'] <= end_date)
-        filtered_data = data.loc[mask]
-
+  
     athletes = st.sidebar.multiselect("Athlet wählen", options=data["Name"].unique(), default=data["Name"].unique())
     competitions = st.sidebar.multiselect("Wettkampf wählen", options=data["Wettkampf"].unique(), default=data["Wettkampf"].unique())
     years = st.sidebar.multiselect("Jahr wählen", options=data["Jahr"].unique(), default=data["Jahr"].unique())
