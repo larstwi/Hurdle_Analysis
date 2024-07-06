@@ -1,9 +1,5 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
-import base64
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 
 # Funktion zum Laden der Daten
 @st.cache
