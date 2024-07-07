@@ -1,11 +1,45 @@
 import streamlit as st
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Funktion zum Laden der Daten
 @st.cache
 def load_data():
-    data = pd.read_excel('data/Auswertungen.xlsx')
-    return data
+    try:
+        # Get the token from environment variables
+        token = os.getenv('GITHUB_TOKEN')
+        if not token:
+            st.error("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
+            return None
+
+        # GitHub repository details
+        owner = 'your_github_username'
+        repo = 'your_repo_name'
+        path = 'data/Auswertungen.xlsx'
+
+        # GitHub API URL for the file
+        url = f'https://api.github.com/repos/{owner}/{repo}/contents/{path}'
+
+        # Headers for authentication
+        headers = {'Authorization': f'token {token}'}
+
+        # Make a request to the GitHub API
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            file_content = response.json()
+            file_url = file_content['download_url']
+
+            # Read the Excel file from the URL
+            data = pd.read_excel(file_url)
+            return data
+        else:
+            st.error(f"Error accessing file from GitHub: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error reading the Excel file from GitHub: {e}")
+        return None
 
 
 # Funktion zum PDF-Export
