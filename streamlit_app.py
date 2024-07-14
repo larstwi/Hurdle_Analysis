@@ -4,7 +4,7 @@ import pandas as pd
 # Funktion zum Laden der Daten
 @st.cache
 def load_data():
-    data = pd.read_excel('data/Auswertungen.xlsx')
+    data = pd.read_excel('data/Auswertungen2.xlsx')
     return data
 
 
@@ -40,7 +40,7 @@ def to_pdf(df):
 
 # Hauptlogik der Streamlit-App
 def main():
-    st.title("Analyse 400m Hürden2")
+    st.title("Analyse 400m Hürden")
 
     # Daten laden
     data = load_data()
