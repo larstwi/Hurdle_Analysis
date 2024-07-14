@@ -5,7 +5,7 @@ import pandas as pd
 @st.cache
 def load_data():
     # Construct the pattern to search for files starting with "Analyse" and ending with ".xlsx"
-    search_pattern = f"{base_path}/Analyse*.xlsx"
+    search_pattern = f"data/Analyse*.xlsx"
     
     # Find all files matching the pattern
     file_paths = glob.glob(search_pattern)
