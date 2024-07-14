@@ -40,7 +40,7 @@ def to_pdf(df):
 
 # Hauptlogik der Streamlit-App
 def main():
-    st.title("Analyse 400m Hürden")
+    st.title("Analyse 400m Hürden2")
 
     # Daten laden
     data = load_data()
