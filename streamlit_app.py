@@ -4,7 +4,21 @@ import pandas as pd
 # Funktion zum Laden der Daten
 @st.cache
 def load_data():
-    data = pd.read_excel('data/Analyse3.xlsx')
+    # Construct the pattern to search for files starting with "Analyse" and ending with ".xlsx"
+    search_pattern = f"{base_path}/Analyse*.xlsx"
+    
+    # Find all files matching the pattern
+    file_paths = glob.glob(search_pattern)
+    
+    if not file_paths:
+        raise FileNotFoundError("No files matching the pattern were found.")
+    
+    # Assuming you only have one file that matches, take the first one
+    latest_file = file_paths[0]
+    
+    # Load the Excel file
+    data = pd.read_excel(latest_file)
+    
     return data
 
 
