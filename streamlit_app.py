@@ -4,7 +4,7 @@ import pandas as pd
 # Funktion zum Laden der Daten
 @st.cache
 def load_data():
-    data = pd.read_excel('data/Analyse2.xlsx')
+    data = pd.read_excel('data/Analyse3.xlsx')
     return data
 
 
