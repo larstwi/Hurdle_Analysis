@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
-import os
 
 # Funktion zum Laden der Daten
 @st.cache
 def load_data():
-    data = pd.read_excel(os.path.abspath('data/Analyse10.xlsx'))
+    data = pd.read_excel('data/Analyse10.xlsx')
     return data
 
 
