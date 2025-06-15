@@ -81,7 +81,7 @@ def main():
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
-    selected_columns['index'] = str(filtered_data["Wettkampf"] + filtered_data["Name"])
+    selected_columns['index'] = filtered_data["Wettkampf"]
 
    # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
@@ -95,7 +95,7 @@ def main():
     # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
         x=alt.X('Variable:O', sort=columns_order),  # Ensure correct column order
-        y='Value:Q',  # Y-axis: Values of the row across all columns
+        y='Abschnittszeit:Q',  # Y-axis: Values of the row across all columns
         color='index:N',  # Color by the row index (each row as a separate line)
         tooltip=['index', 'Variable', 'Value']  # Tooltip shows the row index, column, and value
     ).properties(
