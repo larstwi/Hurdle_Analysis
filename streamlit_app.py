@@ -51,8 +51,20 @@ def main():
     athletes = st.sidebar.multiselect("Athlet wählen", options=data["Name"].unique(), default=data["Name"].unique())
     #competitions = st.sidebar.multiselect("Wettkampf wählen", options=data["Wettkampf"].unique(), default=data["Wettkampf"].unique())
     years = st.sidebar.multiselect("Jahr wählen", options=data["Jahr"].unique(), default=data["Jahr"].unique())
-    min_time = st.sidebar.text_input("Minimale Zeit (Sekunden)", min_value=float(data["Zeit"].min()), max_value=float(data["Zeit"].max()), value=float(data["Zeit"].min()))
-    max_time = st.sidebar.text_input("Maximale Zeit (Sekunden)", min_value=float(data["Zeit"].min()), max_value=float(data["Zeit"].max()), value=float(data["Zeit"].max()))
+    # Min and Max time input fields (instead of sliders)
+    try:
+        min_time_input = st.sidebar.text_input("Minimale Zeit (Sekunden)", value=str(float(data["Zeit"].min())))
+        min_time = float(min_time_input) if min_time_input else float(data["Zeit"].min())
+    except ValueError:
+        st.sidebar.error("Bitte eine gültige Zahl für die minimale Zeit eingeben.")
+        min_time = float(data["Zeit"].min())  # Default value in case of invalid input
+    
+    try:
+        max_time_input = st.sidebar.text_input("Maximale Zeit (Sekunden)", value=str(float(data["Zeit"].max())))
+        max_time = float(max_time_input) if max_time_input else float(data["Zeit"].max())
+    except ValueError:
+        st.sidebar.error("Bitte eine gültige Zahl für die maximale Zeit eingeben.")
+        max_time = float(data["Zeit"].max())  # Default value in case of invalid input
 
     # Daten filtern
     filtered_data = data[
