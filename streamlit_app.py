@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 # Funktion zum Laden der Daten
 @st.cache_data
@@ -79,19 +80,22 @@ def main():
 
     selected_columns = filtered_data.iloc[:, [5, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34, 37]]
 
-    # Reshape data to "long format" for Altair
-    melted_data = selected_columns.reset_index().melt(id_vars=["index"], var_name="Columns", value_name="Times")
+    st.title("Interactive Line Chart")
 
-    # Create a line plot
-    line_chart = st.Chart(selected_columns).mark_line().encode(
-        x='index:O',
-        y='Times:Q',
-        color='Columns:N',
-        tooltip=['Columns', 'Times']
+    # Reshape the data to long format (for Altair)
+    melted_data = selected_columns.reset_index().melt(id_vars=["index"], var_name="Column", value_name="Value")
+
+    # Create an interactive line chart with Altair
+    line_chart = alt.Chart(melted_data).mark_line().encode(
+        x='index:O',       # X-axis: Index (column number)
+        y='Value:Q',       # Y-axis: Values from columns
+        color='Column:N',  # Color lines based on the column name
+        tooltip=['Column', 'Value']  # Tooltip to display column name and value
     ).properties(
-        title='Performance Over Time (Specific Columns)'
-    ).interactive()
+        title="Line Plot of Column Values"
+    ).interactive()  # Make it interactive (zoom, pan, etc.)
 
+    # Display the chart
     st.altair_chart(line_chart, use_container_width=True)
 
 
