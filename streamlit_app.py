@@ -81,7 +81,7 @@ def main():
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
-    selected_columns['index'] = selected_columns.index
+    selected_columns['index'] = filtered_data["Wettkampf"]
 
     # Reshape the data to long format (melt it) for Altair
     melted_data = selected_columns.melt(id_vars=["index"], var_name="Variable", value_name="Value")
