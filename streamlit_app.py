@@ -111,7 +111,8 @@ def main():
 
     # Exportoptionen
     st.header("Exportieren")
-    export_format = st.selectbox("Exportformat wählen", ["CSV", "Excel", "PDF"])
+    export_format = st.selectbox("Exportformat wählen", ["CSV"])
+    #export_format = st.selectbox("Exportformat wählen", ["CSV", "Excel", "PDF"])
 
     if st.button("Exportieren"):
         if export_format == "CSV":
