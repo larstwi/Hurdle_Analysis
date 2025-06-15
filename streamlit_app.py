@@ -80,13 +80,14 @@ def main():
 
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
-    st.title("Interactive Line Chart - One Line per Row")
-
     # Create a new column 'index' representing the row index
     selected_columns['index'] = selected_columns.index
 
     # Reshape the data to long format (melt it) for Altair
     melted_data = selected_columns.melt(id_vars=["index"], var_name="Variable", value_name="Value")
+
+    # Sort the melted data based on the 'Variable' column (to keep columns in order)
+    melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=selected_columns.columns[:-1], ordered=True)
 
     # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
@@ -95,7 +96,7 @@ def main():
         color='index:N',      # Color by the row index (each row as a separate line)
         tooltip=['index', 'Variable', 'Value']  # Tooltip shows the row index, column, and value
     ).properties(
-        title="Line Plot of Values per Row"
+        title="Abschnittszeiten"
     ).interactive()  # Make it interactive (zoom, pan, etc.)
 
     # Display the chart
