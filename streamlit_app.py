@@ -95,8 +95,8 @@ def main():
     # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
         x=alt.X('Variable:O', sort=columns_order),  # Ensure correct column order
-        y='Abschnittszeit:Q',  # Y-axis: Values of the row across all columns
-        color='Wettkampf:N',  # Color by the row index (each row as a separate line)
+        y='Value:Q',  # Y-axis: Values of the row across all columns
+        color='index:N',  # Color by the row index (each row as a separate line)
         tooltip=['index', 'Variable', 'Value']  # Tooltip shows the row index, column, and value
     ).properties(
         title="Line Plot of Values per Row"
