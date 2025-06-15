@@ -90,7 +90,7 @@ def main():
     melted_data = selected_columns.melt(id_vars=["index"], var_name="Variable", value_name="Value")
 
     # Ensure the 'Variable' column respects the original order of the columns
-    melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=columns_order, ordered=True)
+    melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=columns_order, ordered=False)
 
     # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
