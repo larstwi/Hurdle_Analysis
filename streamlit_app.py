@@ -78,7 +78,7 @@ def main():
 
     st.dataframe(filtered_data)
 
-    selected_columns = filtered_data.iloc[:, [5, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34, 37]]
+    selected_columns = filtered_data.iloc[:, [5, 6, 9, 12, 15, 18, 22, 25, 28, 31]]
 
     st.title("Interactive Line Chart")
 
