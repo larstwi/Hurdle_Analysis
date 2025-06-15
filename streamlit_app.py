@@ -82,17 +82,16 @@ def main():
 
     st.title("Interactive Line Chart")
 
-    # Reshape the data to long format (for Altair)
+    # Reshape the data to long format (combine all columns into one line for each index)
     melted_data = selected_columns.reset_index().melt(id_vars=["index"], var_name="Column", value_name="Value")
 
-    # Create an interactive line chart with Altair
+    # Now create the line chart (one line per index, representing combined values of all columns)
     line_chart = alt.Chart(melted_data).mark_line().encode(
-        x='index:O',       # X-axis: Index (column number)
-        y='Value:Q',       # Y-axis: Values from columns
-        color='Column:N',  # Color lines based on the column name
-        tooltip=['Column', 'Value']  # Tooltip to display column name and value
+        x='index:O',       # X-axis: Index (row number)
+        y='Value:Q',       # Y-axis: Values from all columns
+        tooltip=['index', 'Value']  # Tooltip to show the index and corresponding value
     ).properties(
-        title="Line Plot of Column Values"
+        title="Line Plot of Values per Index"
     ).interactive()  # Make it interactive (zoom, pan, etc.)
 
     # Display the chart
