@@ -80,18 +80,22 @@ def main():
 
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
-    st.title("Interactive Line Chart")
+    st.title("Interactive Line Chart - One Line per Row")
 
-    # Reshape the data to long format (combine all columns into one line for each index)
+    # Create a new column 'index' representing the row index
+    selected_columns['index'] = selected_columns.index
+
+    # Reshape the data to long format (melt it) for Altair
     melted_data = selected_columns.reset_index().melt(id_vars=["index"], var_name="Column", value_name="Value")
 
-    # Now create the line chart (one line per index, representing combined values of all columns)
+    # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
-        x='index:O',       # X-axis: Index (row number)
-        y='Value:Q',       # Y-axis: Values from all columns
-        tooltip=['index', 'Value']  # Tooltip to show the index and corresponding value
+        x='variable:O',       # X-axis: Column number (column name is treated as a variable)
+        y='Value:Q',          # Y-axis: Values of the row across all columns
+        color='index:N',      # Color by the row index (each row as a separate line)
+        tooltip=['index', 'variable', 'Value']  # Tooltip shows the row index, column and value
     ).properties(
-        title="Line Plot of Values per Index"
+        title="Line Plot of Values per Row"
     ).interactive()  # Make it interactive (zoom, pan, etc.)
 
     # Display the chart
