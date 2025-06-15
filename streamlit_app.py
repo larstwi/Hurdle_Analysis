@@ -87,19 +87,19 @@ def main():
     columns_order = selected_columns.columns[:-1].tolist()
 
     # Melt the data to long format while keeping the columns order intact
-    melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Variable", value_name="Abschnittszeit")
+    melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit")
 
     # Ensure the 'Variable' column respects the original order of the columns
-    melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=columns_order, ordered=False)
+    melted_data['Abschnitt'] = pd.Categorical(melted_data['Abschnitt'], categories=columns_order, ordered=False)
 
     # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
-        x=alt.X('Variable:O', sort=columns_order),  # Ensure correct column order
+        x=alt.X('Abschnitt:O', sort=columns_order),  # Ensure correct column order
         y='Abschnittszeit:Q',  # Y-axis: Values of the row across all columns
         color='Wettkampf:N',  # Color by the row index (each row as a separate line)
-        tooltip=['Wettkampf', 'Variable', 'Abschnittszeit']  # Tooltip shows the row index, column, and value
+        tooltip=['Wettkampf', 'Abschnitt', 'Abschnittszeit']  # Tooltip shows the row index, column, and value
     ).properties(
-        title="Line Plot of Values per Row"
+        title="Abschnittszeiten"
     ).interactive()  # Make it interactive (zoom, pan, etc.)
 
     # Display the chart
