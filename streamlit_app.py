@@ -76,7 +76,7 @@ def main():
         (data["Zeit"] <= max_time)
     ]
 
-    st.write(filtered_data)
+    st.dataframe(filtered_data.reset_index(drop=True))
 
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
