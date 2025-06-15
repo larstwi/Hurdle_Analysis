@@ -77,6 +77,26 @@ def main():
 
     st.dataframe(filtered_data)
 
+    selected_columns = filtered_data.iloc[:, [5, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34, 37]]
+
+    # Reshape data to "long format" for Altair
+    melted_data = selected_columns.reset_index().melt(id_vars=["index"], var_name="Columns", value_name="Times")
+
+    # Create a line plot
+    line_chart = alt.Chart(melted_data).mark_line().encode(
+        x='index:O',
+        y='Times:Q',
+        color='Columns:N',
+        tooltip=['Columns', 'Times']
+    ).properties(
+        title='Performance Over Time (Specific Columns)'
+    ).interactive()
+
+    st.altair_chart(line_chart, use_container_width=True)
+
+
+
+
     # Exportoptionen
     st.header("Exportieren")
     export_format = st.selectbox("Exportformat wählen", ["CSV", "Excel", "PDF"])
