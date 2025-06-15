@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Funktion zum Laden der Daten
-@st.cache
+@st.cache_data
 def load_data():
     data = pd.read_excel('data/Analyse13.xlsx')
     return data
