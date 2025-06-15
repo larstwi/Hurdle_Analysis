@@ -81,13 +81,13 @@ def main():
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
-    selected_columns['index'] = filtered_data["Wettkampf"]
+    selected_columns['Wettkampf'] = filtered_data["Wettkampf"]
 
    # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
 
     # Melt the data to long format while keeping the columns order intact
-    melted_data = selected_columns.melt(id_vars=["index"], var_name="Variable", value_name="Abschnittszeit")
+    melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Variable", value_name="Abschnittszeit")
 
     # Ensure the 'Variable' column respects the original order of the columns
     melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=columns_order, ordered=False)
@@ -96,8 +96,8 @@ def main():
     line_chart = alt.Chart(melted_data).mark_line().encode(
         x=alt.X('Variable:O', sort=columns_order),  # Ensure correct column order
         y='Abschnittszeit:Q',  # Y-axis: Values of the row across all columns
-        color='index:N',  # Color by the row index (each row as a separate line)
-        tooltip=['index', 'Variable', 'Abschnittszeit']  # Tooltip shows the row index, column, and value
+        color='Wettkampf:N',  # Color by the row index (each row as a separate line)
+        tooltip=['Wettkampf', 'Variable', 'Abschnittszeit']  # Tooltip shows the row index, column, and value
     ).properties(
         title="Line Plot of Values per Row"
     ).interactive()  # Make it interactive (zoom, pan, etc.)
