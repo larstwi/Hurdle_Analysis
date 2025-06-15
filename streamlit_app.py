@@ -76,7 +76,7 @@ def main():
         (data["Zeit"] <= max_time)
     ]
 
-    st.dataframe(filtered_data.reset_index(drop=True))
+    st.dataframe(filtered_data, indices=False)
 
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
@@ -104,10 +104,6 @@ def main():
 
     # Display the chart
     st.altair_chart(line_chart, use_container_width=True)
-
-
-
-
 
     # Exportoptionen
     st.header("Exportieren")
