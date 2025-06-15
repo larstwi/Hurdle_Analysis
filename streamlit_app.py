@@ -83,14 +83,18 @@ def main():
     # Create a new column 'index' representing the row index
     selected_columns['index'] = filtered_data["Wettkampf"]
 
+   # Get the column names (excluding 'index')
+    columns_order = selected_columns.columns[:-1].tolist()
+
+    # Melt the data to long format while keeping the columns order intact
     melted_data = selected_columns.melt(id_vars=["index"], var_name="Variable", value_name="Value")
 
-    # Ensure the 'Variable' column is ordered based on the column names in the DataFrame
-    melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=selected_columns.columns[:-1], ordered=True)
+    # Ensure the 'Variable' column respects the original order of the columns
+    melted_data['Variable'] = pd.Categorical(melted_data['Variable'], categories=columns_order, ordered=True)
 
     # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
-        x=alt.X('Variable:O', sort=selected_columns.columns[:-1].tolist()),  # Ensure correct column order
+        x=alt.X('Variable:O', sort=columns_order),  # Ensure correct column order
         y='Value:Q',  # Y-axis: Values of the row across all columns
         color='index:N',  # Color by the row index (each row as a separate line)
         tooltip=['index', 'Variable', 'Value']  # Tooltip shows the row index, column, and value
