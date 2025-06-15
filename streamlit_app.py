@@ -83,7 +83,7 @@ def main():
     melted_data = selected_columns.reset_index().melt(id_vars=["index"], var_name="Columns", value_name="Times")
 
     # Create a line plot
-    line_chart = alt.Chart(melted_data).mark_line().encode(
+    line_chart = st.Chart(selected_columns).mark_line().encode(
         x='index:O',
         y='Times:Q',
         color='Columns:N',
