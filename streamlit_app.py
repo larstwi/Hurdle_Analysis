@@ -58,7 +58,7 @@ def main():
     filtered_data = data[
         (data["Name"].isin(athletes)) & 
         (data["Wettkampf"].isin(competitions)) & 
-        #(data["Jahr"].isin(years)) & 
+        (data["Jahr"].isin(years)) & 
         (data["Zeit"] >= min_time) & 
         (data["Zeit"] <= max_time)
     ]
