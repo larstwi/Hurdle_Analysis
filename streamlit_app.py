@@ -125,7 +125,8 @@ def main():
         st.warning("Bitte nur eine Zeile auswählen.")
     else:
         st.info("Wähle eine Zeile aus, um die Differenzen anzuzeigen.")
-        selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
+    
+    selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
     selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"]
