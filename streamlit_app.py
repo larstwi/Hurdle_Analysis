@@ -88,19 +88,36 @@ def main():
         (data["Zeit"] <= max_time)
     ]
 
-    # Allow the user to select a row (based on the 'Name' column)
-    selected_row_name = st.selectbox("Select a row to compare others to:", data['Name'])
-    
-    # Find the index of the selected row
-    selected_row = data[data['Name'] == selected_row_name].index[0]
-    
-    # Show the differences table
-    differences = show_row_differences(data, selected_row)
-    
-    st.subheader(f"Differences Relative to {selected_row_name}")
-    st.dataframe(differences)
+    # Show selectable table
+    st.subheader("Datenübersicht (zum Vergleich eine Zeile auswählen)")
 
-    selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
+    # Add a checkbox column for selection
+    data_with_selection = data.copy()
+    data_with_selection.insert(0, "Auswählen", False)
+
+    # Use st.data_editor to allow selection
+    selected_data = st.data_editor(
+        data_with_selection,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="row_selector",
+    )
+
+    # Check which row is selected
+    selected_indices = selected_data[selected_data["Auswählen"]].index.tolist()
+
+    if len(selected_indices) == 1:
+        selected_row = selected_indices[0]
+        selected_name = data.loc[selected_row, "Name"]
+        
+        st.markdown(f"### Differenzen relativ zu: {selected_name}")
+        differences = show_row_differences(data, selected_row)
+        st.dataframe(differences)
+    elif len(selected_indices) > 1:
+        st.warning("Bitte nur eine Zeile auswählen.")
+    else:
+        st.info("Wähle eine Zeile aus, um die Differenzen anzuzeigen.")
+        selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
     selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"]
