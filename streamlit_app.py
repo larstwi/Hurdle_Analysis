@@ -127,39 +127,30 @@ def main():
         st.info("Wähle eine Zeile aus, um die Differenzen anzuzeigen.")
         selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
-   # Sicherstellen, dass die Indizes existieren
-needed_indices = [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]
-available_indices = [i for i in needed_indices if i < filtered_data.shape[1]]
-
-# Nur fortfahren, wenn es valide Indizes und Zeilen gibt
-if len(available_indices) >= 2 and not filtered_data.empty:
-    selected_columns = filtered_data.iloc[:, available_indices].copy()
-
-    # Wettkampf-Spalte hinzufügen
+    # Create a new column 'index' representing the row index
     selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"]
 
-    # Spaltenreihenfolge sichern (ohne 'Wettkampf')
+   # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
 
-    # Daten "melt"-en
-    melted_data = selected_columns.melt(
-        id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit"
-    )
+    # Melt the data to long format while keeping the columns order intact
+    melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit")
+
+    # Ensure the 'Variable' column respects the original order of the columns
     melted_data['Abschnitt'] = pd.Categorical(melted_data['Abschnitt'], categories=columns_order, ordered=False)
 
-    # Chart
+    # Now create the line chart (one line per row, each row is a separate line)
     line_chart = alt.Chart(melted_data).mark_line().encode(
-        x=alt.X('Abschnitt:O', sort=columns_order),
-        y='Abschnittszeit:Q',
-        color='Wettkampf:N',
-        tooltip=['Wettkampf', 'Abschnitt', 'Abschnittszeit']
+        x=alt.X('Abschnitt:O', sort=columns_order),  # Ensure correct column order
+        y='Abschnittszeit:Q',  # Y-axis: Values of the row across all columns
+        color='Wettkampf:N',  # Color by the row index (each row as a separate line)
+        tooltip=['Wettkampf', 'Abschnitt', 'Abschnittszeit']  # Tooltip shows the row index, column, and value
     ).properties(
         title="Abschnittszeiten"
-    ).interactive()
+    ).interactive()  # Make it interactive (zoom, pan, etc.)
 
+    # Display the chart
     st.altair_chart(line_chart, use_container_width=True)
-else:
-    st.info("Nicht genügend Daten oder gültige Spalten für die Visualisierung vorhanden.")
 
     # Exportoptionen
     st.header("Exportieren")
