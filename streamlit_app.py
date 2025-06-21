@@ -40,13 +40,14 @@ def to_pdf(df):
     return buffer
 
 # Function to display differences
-def show_differences(df, selected_column):
-    differences = df.copy()
+def show_row_differences(df, selected_row):
+    # Get the values of the selected row
+    selected_values = df.loc[selected_row]
     
-    # Loop through the columns and calculate the difference with the selected column
-    for col in df.columns:
-        if col != selected_column:
-            differences[col] = df[selected_column] - df[col]
+    # Calculate differences
+    differences = df.copy()
+    for col in df.columns[4:]:  # Exclude the 'Name' column
+        differences[col] = selected_values[col] - df[col]
     
     return differences
 
@@ -87,14 +88,16 @@ def main():
         (data["Zeit"] <= max_time)
     ]
 
-    # Allow the user to select a column
-    columns = data.columns.tolist()[1:]  # Exclude the 'Name' column
-    selected_column = st.selectbox("Select the column to compare others to:", columns)
+    # Allow the user to select a row (based on the 'Name' column)
+    selected_row_name = st.selectbox("Select a row to compare others to:", data['Name'])
+    
+    # Find the index of the selected row
+    selected_row = data[data['Name'] == selected_row_name].index[0]
     
     # Show the differences table
-    differences = show_differences(data, selected_column)
+    differences = show_row_differences(data, selected_row)
     
-    st.subheader("Differences Relative to " + selected_column)
+    st.subheader(f"Differences Relative to {selected_row_name}")
     st.dataframe(differences)
 
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
