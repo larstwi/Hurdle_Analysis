@@ -104,10 +104,10 @@ def main():
 
     if len(selected_indices) == 1:
         selected_row = selected_indices[0]
-        selected_name = data.loc[selected_row, "Name"]
+        selected_name = filtered_data.loc[selected_row, "Name"]
         
         st.markdown(f"### Differenzen relativ zu: {selected_name}")
-        differences = show_row_differences(data, selected_row)
+        differences = show_row_differences(filtered_data, selected_row)
         st.dataframe(differences)
     elif len(selected_indices) > 1:
         st.warning("Bitte nur eine Zeile auswählen.")
