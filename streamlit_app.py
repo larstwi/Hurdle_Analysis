@@ -39,6 +39,17 @@ def to_pdf(df):
     buffer.seek(0)
     return buffer
 
+# Function to display differences
+def show_differences(df, selected_column):
+    differences = df.copy()
+    
+    # Loop through the columns and calculate the difference with the selected column
+    for col in df.columns:
+        if col != selected_column:
+            differences[col] = df[selected_column] - df[col]
+    
+    return differences
+
 # Hauptlogik der Streamlit-App
 def main():
     st.title("Analyse 400m Hürden")
@@ -76,7 +87,15 @@ def main():
         (data["Zeit"] <= max_time)
     ]
 
-    st.dataframe(filtered_data)
+    # Allow the user to select a column
+    columns = data.columns.tolist()[1:]  # Exclude the 'Name' column
+    selected_column = st.selectbox("Select the column to compare others to:", columns)
+    
+    # Show the differences table
+    differences = show_differences(data, selected_column)
+    
+    st.subheader("Differences Relative to " + selected_column)
+    st.dataframe(differences)
 
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
