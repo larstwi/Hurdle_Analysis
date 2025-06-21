@@ -41,11 +41,23 @@ def to_pdf(df):
 
 # Function to display differences
 def show_row_differences(df, selected_row):
-    numeric_cols = df.select_dtypes(include='number').columns
-    selected_row_values = df.loc[selected_row, numeric_cols]
+    # Alle numerischen Spalten holen
+    numeric_cols = df.select_dtypes(include='number').columns.tolist()
 
-    diffs = df[numeric_cols].subtract(selected_row_values, axis=1)
-    return pd.concat([df[["Name"]], diffs], axis=1)
+    # Spalte an Position 1 (Index 1) und letzte Spalte ausschließen
+    cols_to_exclude = [df.columns[1], df.columns[-1]]
+    numeric_cols = [col for col in numeric_cols if col not in cols_to_exclude]
+
+    # Referenzwerte aus gewählter Zeile
+    selected_values = df.loc[selected_row, numeric_cols]
+
+    # Differenzen berechnen
+    differences = df[numeric_cols].subtract(selected_values, axis=1)
+
+    # Name oder andere Kontextspalte(n) anhängen
+    result = pd.concat([df[["Name"]], differences], axis=1)
+
+    return result
 
 # Hauptlogik der Streamlit-App
 def main():
