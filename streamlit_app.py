@@ -88,7 +88,7 @@ def main():
     st.subheader("Datenübersicht (zum Vergleich eine Zeile auswählen)")
 
     # Add a checkbox column for selection
-    data_with_selection = data.copy()
+    data_with_selection = filtered_data.copy()
     data_with_selection.insert(0, "Auswählen", False)
 
     # Use st.data_editor to allow selection
