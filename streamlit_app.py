@@ -140,7 +140,7 @@ def main():
     columns_order = selected_columns.columns[:-1].tolist()
 
     # Melt the data to long format while keeping the columns order intact
-    melted_data = differences.melt(id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit")
+    melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit")
 
     # Ensure the 'Variable' column respects the original order of the columns
     melted_data['Abschnitt'] = pd.Categorical(melted_data['Abschnitt'], categories=columns_order, ordered=False)
