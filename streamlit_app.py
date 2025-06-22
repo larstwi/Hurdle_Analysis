@@ -139,23 +139,16 @@ def main():
    # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
 
-    # Prepare for charting
-        # Identify columns for difference plotting (numeric columns excluding identifiers)
-    id_vars = ["Name", "Wettkampf"]
-    value_vars = [col for col in differences.columns if col not in id_vars]
-
-    if value_vars:
-        differences_long = differences.melt(
+    differences_long = differences.melt(
                 id_vars=["Wettkampf"],
                 var_name="Abschnitt",
                 value_name="Differenz"
             )
-        differences_long["Abschnitt"] = pd.Categorical(
+    differences_long["Abschnitt"] = pd.Categorical(
                 differences_long["Abschnitt"],
                 categories=columns_order,
                 ordered=False
             )
-
 
     # Line chart of differences
     diff_chart = alt.Chart(differences_long).mark_line().encode(
