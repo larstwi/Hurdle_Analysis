@@ -45,7 +45,7 @@ def show_row_differences(df, selected_row):
     numeric_cols = df.select_dtypes(include='number').columns.tolist()
 
     # Spalte an Position 1 (Index 1) und letzte Spalte ausschließen
-    cols_to_exclude = [df.columns[-1]]
+    cols_to_exclude = [df.columns[0], df.columns[-1]]
     numeric_cols = [col for col in numeric_cols if col not in cols_to_exclude]
 
     # Referenzwerte aus gewählter Zeile
@@ -55,7 +55,7 @@ def show_row_differences(df, selected_row):
     differences = df[numeric_cols].subtract(selected_values, axis=1)
 
     # Name oder andere Kontextspalte(n) anhängen
-    result = pd.concat([df[["Name"]], differences], axis=1)
+    result = pd.concat([df[["Name"]], df[["Wettkampf"]], differences], axis=1)
 
     # Add context info
     differences["Name"] = df["Name"]
