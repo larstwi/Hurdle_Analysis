@@ -131,17 +131,23 @@ def main():
     else:
         st.info("Wähle eine Zeile aus, um die Differenzen anzuzeigen.")
 
-    #Prepare for charting
-    diff_columns = differences.select_dtypes(include='number').columns.drop(['Name', 'Wettkampf'], errors='ignore')
-    differences_long = differences.melt(
-        id_vars=["Name", "Wettkampf"],
-        value_vars=diff_columns,
-        var_name="Abschnitt",
-        value_name="Differenz"
-    )
+    # Prepare for charting
+        # Identify columns for difference plotting (numeric columns excluding identifiers)
+        id_vars = ["Name", "Wettkampf"]
+        value_vars = [col for col in differences.columns if col not in id_vars]
 
-    # Maintain section order
-    differences_long['Abschnitt'] = pd.Categorical(differences_long['Abschnitt'], categories=diff_columns, ordered=False)
+        if value_vars:
+            differences_long = differences.melt(
+                id_vars=id_vars,
+                value_vars=value_vars,
+                var_name="Abschnitt",
+                value_name="Differenz"
+            )
+            differences_long["Abschnitt"] = pd.Categorical(
+                differences_long["Abschnitt"],
+                categories=value_vars,
+                ordered=False
+            )
 
     # Line chart of differences
     diff_chart = alt.Chart(differences_long).mark_line().encode(
@@ -150,7 +156,7 @@ def main():
         color="Name:N",
         tooltip=["Name", "Wettkampf", "Abschnitt", "Differenz"]
     ).properties(
-        title=f"Abschnittsunterschiede zu {label}"
+        title=f"### Differenzen relativ zu: {selected_name} - {selected_wettkampf}"
     ).interactive()
 
     st.altair_chart(diff_chart, use_container_width=True)
