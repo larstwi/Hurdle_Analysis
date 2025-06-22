@@ -55,7 +55,7 @@ def show_row_differences(df, selected_row):
     differences = df[numeric_cols].subtract(selected_values, axis=1)
 
     # Name oder andere Kontextspalte(n) anhängen
-    result = pd.concat([df[["Name"]], df[["Wettkampf"]], differences], axis=1)
+    result = pd.concat([df[["Name"]], df[["Wettkampf"]], df[["Jahr"]], differences], axis=1)
 
     # Add context info
     differences["Name"] = df["Name"]
