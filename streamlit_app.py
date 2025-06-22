@@ -151,7 +151,7 @@ def main():
 
     # Line chart of differences
     diff_chart = alt.Chart(differences_long).mark_line().encode(
-        x=alt.X("Abschnitt:O", sort=diff_columns),
+        x=alt.X("Abschnitt:O"),
         y=alt.Y("Differenz:Q"),
         color="Name:N",
         tooltip=["Name", "Wettkampf", "Abschnitt", "Differenz"]
