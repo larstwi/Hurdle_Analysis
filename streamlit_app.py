@@ -130,7 +130,7 @@ def main():
         st.warning("Bitte nur eine Zeile auswählen.")
     else:
         st.info("Wähle eine Zeile aus, um die Differenzen anzuzeigen.")
-
+    
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
@@ -138,30 +138,6 @@ def main():
 
    # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
-
-    differences_long = differences.melt(
-                id_vars=["Wettkampf"],
-                var_name="Abschnitt",
-                value_name="Differenz"
-            )
-    differences_long["Abschnitt"] = pd.Categorical(
-                differences_long["Abschnitt"],
-                categories=columns_order,
-                ordered=False
-            )
-
-    # Line chart of differences
-    diff_chart = alt.Chart(differences_long).mark_line().encode(
-        x=alt.X("Abschnitt:O"),
-        y=alt.Y("Differenz:Q"),
-        color="Name:N",
-        tooltip=["Name", "Wettkampf", "Abschnitt", "Differenz"]
-    ).properties(
-        title=f"### Differenzen relativ zu: {selected_name} - {selected_wettkampf}"
-    ).interactive()
-
-    st.altair_chart(diff_chart, use_container_width=True)
-    
 
     # Melt the data to long format while keeping the columns order intact
     melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit")
