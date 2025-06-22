@@ -73,7 +73,7 @@ def main():
     # Filteroptionen
     st.sidebar.header("Filteroptionen")
   
-    athletes = st.sidebar.multiselect("Athlet:in wählen", options=data["Name"].unique(), default=data["Name"].unique())
+    athletes = st.sidebar.multiselect("Athlet:in wählen", options=data["Name"].unique(), default=data["Name"].unique(), default=[])
     #competitions = st.sidebar.multiselect("Wettkampf wählen", options=data["Wettkampf"].unique(), default=data["Wettkampf"].unique())
     years = st.sidebar.multiselect("Jahr wählen", options=data["Jahr"].unique(), default=data["Jahr"].unique())
     # Min and Max time input fields (instead of sliders)
