@@ -42,10 +42,10 @@ def to_pdf(df):
 # Function to display differences
 def show_row_differences(df, selected_row):
     # Alle numerischen Spalten holen
-    numeric_cols = df
+    numeric_cols = df.select_dtypes(include='number').columns.tolist()
 
     # Spalte an Position 1 (Index 1) und letzte Spalte ausschließen
-    cols_to_exclude = [df.columns[0], df.columns[-1]]
+    cols_to_exclude = [df.columns[-1]]
     numeric_cols = [col for col in numeric_cols if col not in cols_to_exclude]
 
     # Referenzwerte aus gewählter Zeile
