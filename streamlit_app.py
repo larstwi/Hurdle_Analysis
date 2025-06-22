@@ -42,7 +42,7 @@ def to_pdf(df):
 # Function to display differences
 def show_row_differences(df, selected_row):
     # Alle numerischen Spalten holen
-    numeric_cols = df.select_dtypes(include='number').columns.tolist()
+    numeric_cols = df
 
     # Spalte an Position 1 (Index 1) und letzte Spalte ausschließen
     cols_to_exclude = [df.columns[0], df.columns[-1]]
