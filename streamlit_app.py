@@ -131,6 +131,12 @@ def main():
     else:
         st.info("Wähle eine Zeile aus, um die Differenzen anzuzeigen.")
 
+    selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
+
+    # Create a new column 'index' representing the row index
+    selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"]
+
+   # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
 
     # Prepare for charting
@@ -163,13 +169,6 @@ def main():
 
     st.altair_chart(diff_chart, use_container_width=True)
     
-    selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
-
-    # Create a new column 'index' representing the row index
-    selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"]
-
-   # Get the column names (excluding 'index')
-    columns_order = selected_columns.columns[:-1].tolist()
 
     # Melt the data to long format while keeping the columns order intact
     melted_data = selected_columns.melt(id_vars=["Wettkampf"], var_name="Abschnitt", value_name="Abschnittszeit")
