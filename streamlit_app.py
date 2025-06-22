@@ -117,8 +117,9 @@ def main():
     if len(selected_indices) == 1:
         selected_row = selected_indices[0]
         selected_name = filtered_data.loc[selected_row, "Name"]
+        selected_wettkampf = filtered_data.loc[selected_row, "Wettkampf"]
         
-        st.markdown(f"### Differenzen relativ zu: {selected_name}")
+        st.markdown(f"### Differenzen relativ zu: {selected_name} - {selected_wettkampf}")
         differences = show_row_differences(filtered_data, selected_row)
         st.dataframe(differences)
     elif len(selected_indices) > 1:
