@@ -122,8 +122,9 @@ def main():
         selected_row = selected_indices[0]
         selected_name = filtered_data.loc[selected_row, "Name"]
         selected_wettkampf = filtered_data.loc[selected_row, "Wettkampf"]
+        selected_year = filtered_data.loc[selected_row, "Jahr"]
         
-        st.markdown(f"### Differenzen relativ zu: {selected_name} - {selected_wettkampf}")
+        st.markdown(f"### Differenzen relativ zu: {selected_name} - {selected_wettkampf} {selected_year}")
         differences = show_row_differences(filtered_data, selected_row)
         st.dataframe(differences)
     elif len(selected_indices) > 1:
@@ -134,7 +135,7 @@ def main():
     selected_columns = filtered_data.iloc[:, [4, 5, 8, 11, 14, 18, 21, 24, 27, 30, 33]]
 
     # Create a new column 'index' representing the row index
-    selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"]
+    selected_columns['Wettkampf'] = filtered_data["Name"] + " - " + filtered_data["Wettkampf"] + filtered_data["Jahr"]
 
    # Get the column names (excluding 'index')
     columns_order = selected_columns.columns[:-1].tolist()
