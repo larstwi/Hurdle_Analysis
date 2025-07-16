@@ -5,7 +5,7 @@ import altair as alt
 # Funktion zum Laden der Daten
 @st.cache_data
 def load_data():
-    data = pd.read_excel('data/Analyse18.xlsx')
+    data = pd.read_excel('data/Analyse19.xlsx')
     return data
 
 
