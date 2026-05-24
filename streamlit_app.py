@@ -1,6 +1,7 @@
 #für run Befehl: Zuerst immer Analysexx.xlsx umbenennen (Version eins höher und im Code überall ändern)
 #source "/Users/xxx/Documents/Auswertung Läufe/Database_400mh/.venv/bin/activate"      
 #streamlit run "/Users/xxx/Documents/Auswertung Läufe/400m Hürden/Hurdle_Analysis/streamlit_app.py"
+#Resultate auf Github pushen
 
 import streamlit as st
 import pandas as pd
