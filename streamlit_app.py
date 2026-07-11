@@ -11,7 +11,18 @@ import altair as alt
 # Funktion zum Laden der Daten
 @st.cache_data
 def load_data():
-    data = pd.read_excel('data/Analyse32.xlsx')
+    data = pd.read_excel("data/Analyse32.xlsx")
+
+    # Zeit bereinigen und in Zahlen umwandeln
+    if "Zeit" in data.columns:
+        data["Zeit"] = (
+            data["Zeit"]
+            .astype(str)
+            .str.strip()
+            .str.replace(",", ".", regex=False)
+        )
+        data["Zeit"] = pd.to_numeric(data["Zeit"], errors="coerce")
+
     return data
 
 
