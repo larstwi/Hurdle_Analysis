@@ -11,7 +11,7 @@ import altair as alt
 # Funktion zum Laden der Daten
 @st.cache_data
 def load_data():
-    data = pd.read_excel('data/Analyse30.xlsx')
+    data = pd.read_excel('data/Analyse31.xlsx')
     return data
 
 
