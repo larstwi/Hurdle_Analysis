@@ -1,4 +1,6 @@
 streamlit
 pandas
-openpyxl
 altair
+openpyxl
+XlsxWriter
+reportlab
