@@ -23,28 +23,70 @@ def load_data():
  
  
 def to_pdf(df):
-    from reportlab.lib.pagesizes import letter
-    from reportlab.pdfgen import canvas
- 
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A3, landscape
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    font, header_font = "Helvetica", "Helvetica-Bold"
+    font_size, padding = 6, 2
+
+    def fmt(v):
+        if pd.isna(v):
+            return ""
+        if isinstance(v, float):
+            return f"{v:g}"
+        return str(v)
+
+    header = [str(c) for c in df.columns]
+    rows = [[fmt(v) for v in row] for row in df.itertuples(index=False)]
+    table_data = [header] + rows
+
+    # Spaltenbreiten aus dem breitesten Zellinhalt berechnen
+    col_widths = []
+    for i in range(len(header)):
+        w = max(
+            stringWidth(table_data[r][i], header_font if r == 0 else font, font_size)
+            for r in range(len(table_data))
+        )
+        col_widths.append(w + 2 * padding + 2)
+
+    pagesize = landscape(A3)
+    avail = pagesize[0] - 20 * mm
+    total = sum(col_widths)
+    if total > avail:  # proportional schrumpfen, falls zu breit
+        scale = avail / total
+        col_widths = [w * scale for w in col_widths]
+        font_size = max(4, font_size * scale)
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), header_font),
+        ("FONTNAME", (0, 1), (-1, -1), font),
+        ("FONTSIZE", (0, 0), (-1, -1), font_size),
+        ("LEADING", (0, 0), (-1, -1), font_size + 2),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F3864")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#999999")),
+        ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), padding),
+        ("RIGHTPADDING", (0, 0), (-1, -1), padding),
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
+
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    col_width = width / len(df.columns)
- 
-    c.drawString(30, height - 40, "Gefilterte Daten")
-    for i, col in enumerate(df.columns):
-        c.drawString(30 + i * col_width, height - 60, str(col))
- 
-    y = height - 80
-    for _, row in df.iterrows():
-        for i, col in enumerate(df.columns):
-            c.drawString(30 + i * col_width, y, str(row[col]))
-        y -= 20
-        if y < 40:
-            c.showPage()
-            y = height - 40
- 
-    c.save()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=pagesize,
+        leftMargin=10 * mm, rightMargin=10 * mm,
+        topMargin=10 * mm, bottomMargin=10 * mm,
+        title="Analyse 400m Hürden",
+    )
+    doc.build([Paragraph("Gefilterte Daten", getSampleStyleSheet()["Heading2"]), table])
     buffer.seek(0)
     return buffer
  
