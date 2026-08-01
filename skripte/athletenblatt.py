@@ -21,6 +21,7 @@ from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.data_source import StrRef
 
 from master_io import load_master
+from auswertung import select_season, kuerzel_runde
 
 ARIAL = 'Arial'
 TINTE, GRAU = '1F3348', '6B7A8A'
@@ -58,9 +59,6 @@ R_DATUM, R_ORT, R_RUNDE, R_LAUF, R_BAHN, R_RANG, R_ZEIT, R_STATUS = 2, 3, 4, 5, 
 R_H1, R_H5, R_H6, R_H10, R_S0 = 10, 14, 15, 19, 20
 R_LABEL, R_KURZ = 30, 31
 
-# Kurzzeichen fuer die Runde, spart Spaltenbreite
-KUERZEL = {'Vorlauf': 'V', 'Halbfinal': 'H', 'Final': 'F', 'Trainingswettkampf': 'T'}
-
 
 def rd(col, zeile):
     return f'Rohdaten!{L(col)}{zeile}'
@@ -97,11 +95,7 @@ def schreibe_rohdaten(ws, df):
                 c.number_format = 'DD.MM.YYYY'
     kopfzelle(ws, f'{L(R_KURZ)}1', 'kurz', groesse=9)
     for i, (_, r) in enumerate(df.iterrows(), start=2):
-        k = KUERZEL.get(str(r['runde']), '')
-        lf = r['lauf']
-        if k and lf not in (None, '') and not pd.isna(lf):
-            k = f'{k}{int(lf)}'
-        c = ws.cell(i, R_KURZ, k)
+        c = ws.cell(i, R_KURZ, kuerzel_runde(r['runde'], r['lauf']))
         c.font = Font(name=ARIAL, size=9)
     ws.column_dimensions[L(R_KURZ)].width = 7
     ws.freeze_panes = 'B2'
@@ -203,37 +197,9 @@ def markiere_bestzeit(ws, oben, unten, breit):
 
 
 def baue(master, athlet, saison, ziel, vergleiche=4):
-    alle = master[master['athlet'] == athlet].copy()
-    if alle.empty:
-        raise SystemExit(f'Keine Rennen fuer {athlet} gefunden.')
-    alle['_jahr'] = pd.to_datetime(alle['datum'], errors='coerce').dt.year
-
-    lauf = alle[alle['_jahr'] == saison].sort_values('datum')
-    if lauf.empty:
-        raise SystemExit(f'Keine Rennen fuer {athlet} in {saison}.')
-    frueher = alle[alle['_jahr'] < saison].copy()
-
-    zeiten = pd.to_numeric(lauf['zeit'], errors='coerce')
-    sb = zeiten.min()
-    alle_z = pd.to_numeric(alle['zeit'], errors='coerce')
-    pb = alle_z.min()
-    pb_jahr = int(alle.loc[alle_z.idxmin(), '_jahr']) if pd.notna(pb) else None
-    pb_id = alle.loc[alle_z.idxmin(), 'race_id'] if pd.notna(pb) else None
-
-    vgl = pd.DataFrame()
-    if not frueher.empty:
-        frueher['_zeit'] = pd.to_numeric(frueher['zeit'], errors='coerce')
-        g = frueher.dropna(subset=['_zeit'])
-        if not g.empty:
-            beste = g.loc[g.groupby('_jahr')['_zeit'].idxmin()]
-            rest = g.drop(beste.index)
-            if pd.notna(sb) and not rest.empty and len(beste) < vergleiche:
-                rest = rest.assign(_d=(rest['_zeit'] - sb).abs()).nsmallest(
-                    vergleiche - len(beste), '_d')
-                vgl = pd.concat([beste, rest])
-            else:
-                vgl = beste
-            vgl = vgl.sort_values('datum', ascending=False)
+    auswahl = select_season(master, athlet, saison, vergleiche)
+    lauf, vgl = auswahl['lauf'], auswahl['vgl']
+    sb, pb, pb_jahr, pb_id = auswahl['sb'], auswahl['pb'], auswahl['pb_jahr'], auswahl['pb_id']
 
     reihenfolge = pd.concat([lauf, vgl])
     idx = {rid: i + 2 for i, rid in enumerate(reihenfolge['race_id'])}
@@ -333,12 +299,8 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
         for j, t in enumerate(texte, spalten):
             kopfzelle(kv, f'{L(j)}{zeile}', t, groesse=9)
 
-    # Referenz: schnellstes vollstaendiges Saisonrennen
-    vollstaendig = [r for _, r in lauf.iterrows()
-                    if r['status'] == 'OK' and all(r[f'h{i}'] != '' for i in range(1, 11))]
-    ref = min(vollstaendig, key=lambda r: float(r['zeit'])) if vollstaendig else None
-
     # --- Block 1: kumulierter Rueckstand zum Referenzrennen ---
+    ref = auswahl['ref']
     ref_name = ''
     if ref is not None:
         ref_name = (f"{pd.to_datetime(ref['datum']).strftime('%d.%m.%y')} {ref['ort']}"

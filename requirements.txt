@@ -1,6 +1,5 @@
 streamlit
 pandas
-altair
 openpyxl
-XlsxWriter
 reportlab
+matplotlib
