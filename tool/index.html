@@ -86,6 +86,8 @@ video{width:100%;display:block;max-height:52vh;object-fit:contain;background:#00
 .slot.set{background:var(--panel);color:var(--text);border-color:#4A5566}
 .slot.skip{background:#0D1014;color:#5A6474;text-decoration:line-through}
 .slot.target{border-color:var(--signal);color:var(--signal)}
+.slot.vorschlag{background:#2A2410;color:#D9B857;border:1px dashed #8A742E;cursor:pointer}
+.slot.vorschlag:hover{background:#3A3216;border-color:#D9B857}
 .slot:hover{border-color:var(--muted)}
 .slotbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:0 10px 8px}
 .slotbar .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
@@ -222,6 +224,40 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="hd"><h2>Automatische Erkennung</h2><span class="spacer"></span>
+        <span class="status" id="erkStatus"></span></div>
+      <div class="bd">
+        <p class="hint" style="margin-bottom:10px">
+          Schlägt Touchdowns anhand der Bewegung vor — erkennt den Hürdenbogen der Hüfte und
+          den folgenden Fussaufsatz. Qualität hängt stark vom Kamerawinkel ab: Vorschläge müssen
+          immer geprüft werden. Gelb + <span class="mono">~</span> markiert im Raster einen
+          Vorschlag, ein Klick übernimmt ihn.
+        </p>
+        <div class="row" style="margin-bottom:10px">
+          <div><label for="erkRichtung">Laufrichtung im Bild</label>
+            <select id="erkRichtung">
+              <option value="lr">links → rechts</option>
+              <option value="rl">rechts → links</option>
+            </select>
+          </div>
+          <div><label for="erkSchritt">Frame-Abtastung</label>
+            <select id="erkSchritt">
+              <option value="1">jeder Frame (genau, langsam)</option>
+              <option value="2" selected>jeder 2. Frame</option>
+              <option value="3">jeder 3. Frame (schnell, gröber)</option>
+            </select>
+          </div>
+        </div>
+        <button id="erkStart" class="primary" disabled>Erkennung starten</button>
+        <div id="erkProgress" style="display:none;margin-top:10px">
+          <div style="background:#0D1014;border:1px solid var(--line);border-radius:3px;height:8px;overflow:hidden">
+            <div id="erkBalken" style="background:var(--signal);height:100%;width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ============ RECHTS: Läufer:innen ============ -->
@@ -322,6 +358,8 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -507,6 +545,7 @@ function newAthlete(){
     statusFeld:'OK', finish:'',
     marks: new Array(SLOTS).fill(null),
     schritte: new Array(NH).fill(''),
+    vorschlaege: new Array(SLOTS).fill(null),
   };
 }
 $('addAthlete').addEventListener('click',()=>{
@@ -553,11 +592,20 @@ function renderAthletes(){
     const sl = document.createElement('div'); sl.className = 'slots';
     for(let i=0;i<SLOTS;i++){
       const m = a.marks[i];
+      const v = a.vorschlaege ? a.vorschlaege[i] : null;
       const b = document.createElement('div');
-      b.className = 'slot'+(typeof m==='number'?' set':'')+(m===SKIP?' skip':'')+((a.id===selId&&i===targetSlot)?' target':'');
-      b.textContent = 'H'+(i+1);
-      b.title = typeof m==='number' ? ('Frame '+m) : (m===SKIP?'nicht sichtbar':'offen');
-      b.addEventListener('click',()=>{selId=a.id;targetSlot=i;renderAthletes()});
+      const istVorschlag = typeof m!=='number' && m!==SKIP && typeof v==='number';
+      b.className = 'slot'+(typeof m==='number'?' set':'')+(m===SKIP?' skip':'')
+                    +(istVorschlag?' vorschlag':'')+((a.id===selId&&i===targetSlot)?' target':'');
+      b.textContent = istVorschlag ? '~'+'H'+(i+1) : 'H'+(i+1);
+      b.title = typeof m==='number' ? ('Frame '+m)
+              : m===SKIP ? 'nicht sichtbar'
+              : istVorschlag ? ('Vorschlag: Frame '+v+' — klicken zum Übernehmen')
+              : 'offen';
+      b.addEventListener('click',()=>{
+        if(istVorschlag){ a.marks[i]=v; renderAthletes(); renderPreview(); return; }
+        selId=a.id; targetSlot=i; renderAthletes();
+      });
       sl.appendChild(b);
     }
     el.appendChild(sl);
@@ -1255,6 +1303,200 @@ function vaZeichneCharts(aw){
   box.insertAdjacentHTML('beforeend', '<div class="chartbox">'+
     vaSvgLinie('Ermüdungsprofil · Verlust ggü. eigenem schnellsten Abschnitt','s',serien2,xl2,v=>v.toFixed(1))+'</div>');
 }
+
+/* ======================================================================
+   Automatische Touchdown-Erkennung (optional, ersetzt nie die manuelle
+   Markierung — liefert nur Vorschlaege, die per Klick uebernommen werden).
+
+   Ablauf:
+   1. MoveNet MultiPose laedt einmalig (CDN, danach vom Browser gecacht).
+   2. Ab Startframe werden Frames abgetastet, pro Frame alle erkannten
+      Personen mit Huefte/Knoechel erfasst.
+   3. Einfaches Tracking ordnet Erkennungen ueber die Zeit denselben
+      "Spuren" zu (naechster Nachbar nach Bildposition).
+   4. Je Spur: Hueftbogen (Huerdenueberquerung) und Fussaufsatz-Momente
+      per Peak-Erkennung gefunden, Landung = erster Fussaufsatz nach
+      einem Bogen.
+   5. Spuren werden per Laufrichtung + eingetragener Bahnnummer den
+      Athlet:innen zugeordnet, Ergebnisse landen in a.vorschlaege.
+   ====================================================================== */
+let erkennungsModell = null;
+
+function findeLokaleMaxima(y, minAbstand, minProminenz){
+  const kandidaten=[];
+  for(let i=1;i<y.length-1;i++){
+    if(y[i]==null) continue;
+    if(y[i]>=y[i-1] && y[i]>=y[i+1]){
+      const umfeld=y.slice(Math.max(0,i-8),i+9).filter(v=>v!=null);
+      const umfeldMin=Math.min(...umfeld);
+      const prominenz=y[i]-umfeldMin;
+      if(prominenz>=minProminenz) kandidaten.push({i,prominenz});
+    }
+  }
+  kandidaten.sort((a,b)=>a.i-b.i);
+  const gefiltert=[];
+  for(const k of kandidaten){
+    const letzter=gefiltert[gefiltert.length-1];
+    if(letzter && k.i-letzter.i<minAbstand){ if(k.prominenz>letzter.prominenz) gefiltert[gefiltert.length-1]=k; }
+    else gefiltert.push(k);
+  }
+  return gefiltert.map(k=>k.i);
+}
+function findeLokaleMinima(y, minAbstand, minProminenz){
+  return findeLokaleMaxima(y.map(v=>v==null?null:-v), minAbstand, minProminenz);
+}
+function ordneHuerdenlandungen(fussKontakte, hueftBoegen, anzahl){
+  const landungen=[];
+  for(const bogen of hueftBoegen){
+    const naechster=fussKontakte.find(f=>f>bogen);
+    if(naechster!=null) landungen.push(naechster);
+  }
+  return [...new Set(landungen)].sort((a,b)=>a-b).slice(0,anzahl);
+}
+function ordneBahnen(tracks, athletenBahnen, richtung){
+  const sortiert=[...tracks].sort((a,b)=> richtung==='lr' ? a.startX-b.startX : b.startX-a.startX);
+  const bahnenSortiert=[...athletenBahnen].sort((a,b)=>a-b);
+  const zuordnung={};
+  sortiert.forEach((t,i)=>{ if(bahnenSortiert[i]!=null) zuordnung[t.id]=bahnenSortiert[i]; });
+  return zuordnung;
+}
+
+async function ladeErkennungsmodell(){
+  if(erkennungsModell) return erkennungsModell;
+  status('erkStatus','Modell wird geladen …');
+  await tf.setBackend('webgl');
+  await tf.ready();
+  erkennungsModell = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING }
+  );
+  status('erkStatus','Modell geladen.','good');
+  return erkennungsModell;
+}
+
+/** Einfaches Tracking: pro Frame werden erkannte Personen der naechstgelegenen
+    bestehenden Spur zugeordnet (Hueftmittelpunkt), sonst startet eine neue Spur. */
+function verfolgeSpuren(frameErgebnisse, maxDistanz){
+  const spuren = []; // {id, punkte:[{frame,hueftX,hueftY,knoechelY}], letzteX, letzteY}
+  let naechsteId = 0;
+  for(const {frame, personen} of frameErgebnisse){
+    for(const p of personen){
+      let beste=null, besteDist=maxDistanz;
+      for(const s of spuren){
+        if(frame - s.letzterFrame > 6) continue; // Spur zu lange nicht gesehen
+        const d = Math.hypot(p.hueftX-s.letzteX, p.hueftY-s.letzteY);
+        if(d<besteDist){ besteDist=d; beste=s; }
+      }
+      if(!beste){ beste={id:'t'+(naechsteId++), punkte:[], startX:p.hueftX}; spuren.push(beste); }
+      beste.punkte.push({frame, hueftY:p.hueftY, knoechelY:p.knoechelY});
+      beste.letzteX=p.hueftX; beste.letzteY=p.hueftY; beste.letzterFrame=frame;
+    }
+  }
+  return spuren.filter(s=>s.punkte.length>=20); // zu kurze Spuren verwerfen
+}
+
+$('erkRichtung').value = 'lr';
+video?.addEventListener?.('loadedmetadata', ()=>{ $('erkStart').disabled=false; });
+
+$('erkStart').addEventListener('click', async () => {
+  if(!vidReady || startFrame==null){
+    status('erkStatus','Bitte zuerst Video laden und Startframe setzen.','warn'); return;
+  }
+  const mitBahn = athletes.filter(a=>a.name && a.name.trim() && isFinite(parseInt(a.bahn,10)));
+  if(!mitBahn.length){
+    status('erkStatus','Bitte zuerst Läufer:innen mit Name und Bahn erfassen.','warn'); return;
+  }
+
+  $('erkStart').disabled = true;
+  $('erkProgress').style.display = 'block';
+  try{
+    const modell = await ladeErkennungsmodell();
+    const schritt = parseInt($('erkSchritt').value,10) || 2;
+    const wasPaused = video.paused; video.pause();
+    const wasMuted = video.muted; video.muted = true;
+
+    const endeZeit = video.duration;
+    const startZ = frameToTime(startFrame);
+    const endFrame = timeToFrame(endeZeit);
+    const gesamtFrames = Math.max(1, Math.floor((endFrame - startFrame)/schritt));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+
+    const frameErgebnisse = [];
+    let n = 0;
+    for(let f=startFrame; f<=endFrame; f+=schritt){
+      await goToFrame(f);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const posen = await modell.estimatePoses(canvas);
+      const personen = [];
+      for(const p of posen){
+        const kp = name => p.keypoints.find(k=>k.name===name);
+        const lh=kp('left_hip'), rh=kp('right_hip'), la=kp('left_ankle'), ra=kp('right_ankle');
+        if(!lh || !rh) continue;
+        if((lh.score??0)<0.25 || (rh.score??0)<0.25) continue;
+        const hueftX=(lh.x+rh.x)/2, hueftY=(lh.y+rh.y)/2;
+        // untere (= groessere y) der beiden Knoechel = aktuell staerker belasteter Fuss
+        const knoechelY = Math.max(
+          (la && (la.score??0)>0.2) ? la.y : -Infinity,
+          (ra && (ra.score??0)>0.2) ? ra.y : -Infinity
+        );
+        personen.push({hueftX, hueftY, knoechelY: isFinite(knoechelY)?knoechelY:null});
+      }
+      frameErgebnisse.push({frame:f, personen});
+      n++;
+      if(n % 5 === 0){
+        $('erkBalken').style.width = Math.round(n/gesamtFrames*100)+'%';
+        status('erkStatus','Analysiere … '+Math.round(n/gesamtFrames*100)+' %');
+      }
+    }
+
+    video.playbackRate = 1; video.muted = wasMuted;
+    if(!wasPaused) video.play();
+
+    const spuren = verfolgeSpuren(frameErgebnisse, canvas.width*0.15);
+    if(!spuren.length){
+      status('erkStatus','Keine Personen zuverlässig erkannt — bitte manuell markieren.','warn');
+      return;
+    }
+
+    const richtung = $('erkRichtung').value;
+    const bahnen = mitBahn.map(a=>parseInt(a.bahn,10));
+    const zuordnung = ordneBahnen(spuren.map(s=>({id:s.id,startX:s.startX})), bahnen, richtung);
+
+    let zugewiesen = 0;
+    for(const spur of spuren){
+      const bahnNr = zuordnung[spur.id];
+      const athlet = mitBahn.find(a=>parseInt(a.bahn,10)===bahnNr);
+      if(!athlet) continue;
+
+      const frames = spur.punkte.map(p=>p.frame);
+      const hueftY = spur.punkte.map(p=>p.hueftY);
+      const knoechelY = spur.punkte.map(p=>p.knoechelY);
+      const minAbstandFrames = Math.max(2, Math.round(0.15*fps/schritt));
+      const boegenIdx = findeLokaleMinima(hueftY, Math.max(2,Math.round(0.6*fps/schritt)), canvas.height*0.01);
+      const kontakteIdx = findeLokaleMaxima(knoechelY, minAbstandFrames, canvas.height*0.005);
+      const landungenIdx = ordneHuerdenlandungen(kontakteIdx, boegenIdx, NH);
+
+      if(!athlet.vorschlaege) athlet.vorschlaege = new Array(SLOTS).fill(null);
+      landungenIdx.forEach((idx, i) => {
+        if(i<NH && typeof athlet.marks[i]!=='number' && athlet.marks[i]!==SKIP){
+          athlet.vorschlaege[i] = frames[idx];
+        }
+      });
+      zugewiesen++;
+    }
+
+    renderAthletes(); renderPreview();
+    status('erkStatus', zugewiesen+' Spur(en) ausgewertet — Vorschläge (gelb, ~) im Raster prüfen und anklicken.','good');
+  }catch(err){
+    status('erkStatus','Fehler bei der Erkennung: '+err.message,'bad');
+  }finally{
+    $('erkProgress').style.display = 'none';
+    $('erkStart').disabled = false;
+  }
+});
 
 /* ======================================================================
    Start
