@@ -49,6 +49,16 @@ LINIENFARBEN = ['#C8571F', '#2E7D6B', '#3B6FA0', '#A0439B', '#B8860B',
 SPALTEN = (['Datum', 'Ort', 'Rd', 'Bahn', 'Rang', 'Zeit', '0–200', '200–400', 'Diff']
            + ['Start–H1'] + [f'H{i}–H{i+1}' for i in range(1, 10)] + ['H10–Ziel'])
 
+# Spaltenbreiten direkt aus dem Excel-Layout uebernehmen (single source of truth):
+# aendert sich dort etwas, zieht das PDF automatisch mit, statt auseinanderzulaufen.
+from athletenblatt import BREITEN as SPALTENBREITEN
+
+# Gruppenkopf ueber den Spaltentiteln, wie in Zeile 7 des Excel-Blatts.
+# (Spalte von, Spalte bis, Beschriftung) - 0-basiert.
+GRUPPEN = [(0, 4, 'RENNEN'), (5, 8, 'ERGEBNIS'),
+           (9, 19, 'ABSCHNITTE   ·   oben Sekunden, unten Schritte')]
+KOPF_HELL = colors.HexColor('#DCE3EA')
+
 
 def fmt(v, nachkomma=2):
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -174,7 +184,10 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
     story.append(Spacer(1, 6))
 
     # ---------- Tabelle ----------
-    daten = [SPALTEN]
+    gruppenzeile = [''] * len(SPALTEN)
+    for von, _bis, titel in GRUPPEN:
+        gruppenzeile[von] = titel
+    daten = [gruppenzeile, SPALTEN]
     zeilen_meta = []   # (zeile_index_zeit, ist_pb, ist_vergleich)
     for _, r in lauf.iterrows():
         z1, z2 = rennzeilen(r)
@@ -191,17 +204,22 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
     else:
         vgl_kopf_idx = None
 
-    n_r, n_c = len(daten), len(SPALTEN)
-    breiten = [22, 30, 10, 12, 12, 14, 14, 14, 13] + [15] + [13] * 9 + [15]
-    skala = doc.width / sum(breiten)
-    breiten = [b * skala for b in breiten]
+    skala = doc.width / sum(SPALTENBREITEN)
+    breiten = [b * skala for b in SPALTENBREITEN]
 
-    tbl = Table(daten, colWidths=breiten, repeatRows=1)
+    tbl = Table(daten, colWidths=breiten, repeatRows=2)
     stil = [
+        # Gruppenkopf (Zeile 0) - dunkel, wie Zeile 7 im Excel
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DCE3EA')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), TINTE),
+        ('BACKGROUND', (0, 0), (-1, 0), TINTE),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        # Spaltentitel (Zeile 1) - hell, wie Zeile 8 im Excel
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, 1), 8),
+        ('BACKGROUND', (0, 1), (-1, 1), KOPF_HELL),
+        ('TEXTCOLOR', (0, 1), (-1, 1), TINTE),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 7.5),
         ('ALIGN', (3, 0), (-1, -1), 'CENTER'),
@@ -211,6 +229,8 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
         ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('LEFTPADDING', (0, 0), (-1, -1), 3), ('RIGHTPADDING', (0, 0), (-1, -1), 3),
     ]
+    for von, bis, _t in GRUPPEN:
+        stil.append(('SPAN', (von, 0), (bis, 0)))
     for i, (r0, ist_pb, ist_vgl) in enumerate(zeilen_meta):
         stil.append(('SPAN', (0, r0), (0, r0 + 1)))
         stil.append(('SPAN', (1, r0), (1, r0 + 1)))
@@ -292,9 +312,10 @@ def baue_pdf_auswahl(master, race_ids, titel='Rennvergleich'):
         z1, z2 = rennzeilen(r, mit_athlet=True)
         daten += [z1, z2]
 
-    breiten = [26, 22, 30, 10, 12, 12, 14, 14, 14, 13] + [15] + [13] * 9 + [15]
-    skala = doc.width / sum(breiten)
-    breiten = [b * skala for b in breiten]
+    # Dieselben Breiten wie im Excel/Saison-PDF, plus eine Athletenspalte vorne
+    breiten_roh = [14] + list(SPALTENBREITEN)
+    skala = doc.width / sum(breiten_roh)
+    breiten = [b * skala for b in breiten_roh]
 
     tbl = Table(daten, colWidths=breiten, repeatRows=1)
     stil = [
