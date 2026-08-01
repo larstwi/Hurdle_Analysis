@@ -117,6 +117,20 @@ video{width:100%;display:block;max-height:52vh;object-fit:contain;background:#00
 .log .bad{color:var(--bad)}
 
 footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align:center}
+
+.vatable{width:100%;border-collapse:collapse;font-size:13px}
+.vatable th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:5px 8px 5px 0;border-bottom:1px solid var(--line)}
+.vatable td{padding:6px 8px 6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.vatable tr.pb td{background:rgba(255,197,61,.08)}
+.vatable tr.vgl td{color:var(--muted);font-style:italic}
+.vacharts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.vacharts{grid-template-columns:1fr}}
+.chartbox{background:#0D1014;border:1px solid var(--line);border-radius:4px;padding:10px}
+.chartbox h3{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px;text-transform:none;letter-spacing:0}
+.chartlegend{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;font-size:11px;color:var(--muted)}
+.chartlegend span{display:inline-flex;align-items:center;gap:4px}
+.chartlegend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -237,9 +251,32 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
     <div class="log" id="sendLog" style="display:none"></div>
   </div>
 </div>
+
+<!-- ============ AUSWERTUNG (Live-Vorschau) ============ -->
+<div class="card">
+  <div class="hd"><h2>Auswertung ansehen</h2><span class="spacer"></span>
+    <button id="vaReload" class="ghost sm">↻ neu laden</button>
+    <span class="status" id="vaStatus"></span>
+  </div>
+  <div class="bd">
+    <div id="vaLeer" class="hint">
+      Unter ⚙ Einstellungen ein Repo hinterlegen (Token ist dafür nicht nötig, der Master ist öffentlich lesbar),
+      dann erscheint hier die Saisonauswertung direkt aus GitHub — ohne Streamlit.
+    </div>
+    <div id="vaInhalt" style="display:none">
+      <div class="row" style="margin-bottom:12px">
+        <div><label for="vaAthlet">Athlet:in</label><select id="vaAthlet" style="min-width:160px"></select></div>
+        <div><label for="vaSaison">Saison</label><select id="vaSaison" style="min-width:100px"></select></div>
+      </div>
+      <div class="wkgrid" id="vaKpis" style="margin-bottom:14px"></div>
+      <div id="vaTabelle"></div>
+      <div class="vacharts" id="vaCharts" style="margin-top:16px"></div>
+    </div>
+  </div>
+</div>
 </div>
 
-<footer>Touchdown — läuft offline im Browser, ausser beim Abschicken an GitHub. Eine einzelne HTML-Datei, beliebig hostbar.</footer>
+<footer>Touchdown — läuft offline im Browser, ausser beim Abschicken an GitHub und beim Laden der Auswertung. Eine einzelne HTML-Datei, beliebig hostbar.</footer>
 
 <!-- ============ Einstellungen ============ -->
 <div class="overlay" id="settingsOverlay">
@@ -865,11 +902,263 @@ $('downloadJson').addEventListener('click',()=>{
 });
 
 /* ======================================================================
+   Auswertung ansehen — Live-Vorschau direkt aus GitHub, ohne Streamlit.
+   Portiert aus skripte/auswertung.py, Werte gegen Python geprueft.
+   ====================================================================== */
+const LINIENFARBEN = ['#FFC53D','#5FBFA0','#7FA8E0','#C77FD4','#E88A5A','#9AD35F','#E0607A','#6FD3D3'];
+
+function vaToNum(v){
+  if(v==null || v==='') return null;
+  const n = parseFloat(v);
+  return isFinite(n) ? n : null;
+}
+function vaKuerzelRunde(runde, lauf){
+  const K = {Vorlauf:'V', Halbfinal:'H', Final:'F', Trainingswettkampf:'T'};
+  if(!runde) return '';
+  let k = K[runde] || '';
+  if(k && lauf) k += String(parseInt(lauf,10));
+  return k;
+}
+function vaLabel(r){
+  let datum = '?';
+  if(r.datum){ const d=new Date(r.datum+'T00:00:00'); datum = String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'; }
+  const k = vaKuerzelRunde(r.runde, r.lauf);
+  return (datum+' '+(r.ort||'')+' '+k).trim();
+}
+function vaSegmente(r){
+  const h = []; for(let i=1;i<=10;i++) h.push(vaToNum(r['h'+i]));
+  const z = vaToNum(r.zeit);
+  const seg = [h[0]];
+  for(let i=0;i<9;i++) seg.push((h[i]!=null&&h[i+1]!=null) ? Math.round((h[i+1]-h[i])*1000)/1000 : null);
+  seg.push((h[9]!=null&&z!=null) ? Math.round((z-h[9])*1000)/1000 : null);
+  return seg;
+}
+
+/** Portiert aus auswertung.select_season() — gleiche Regeln, gleiche Ergebnisse. */
+function vaSelectSeason(alle, athlet, saison, vergleiche){
+  vergleiche = vergleiche || 4;
+  const rennen = alle.filter(r=>r.athlet===athlet);
+  const jahrVon = r => r.datum ? parseInt(r.datum.slice(0,4),10) : null;
+
+  const lauf = rennen.filter(r=>jahrVon(r)===saison).sort((a,b)=>(a.datum||'').localeCompare(b.datum||''));
+  if(!lauf.length) return null;
+  const frueher = rennen.filter(r=>jahrVon(r)!=null && jahrVon(r)<saison);
+
+  const zeitenSaison = lauf.map(r=>vaToNum(r.zeit)).filter(v=>v!=null);
+  const sb = zeitenSaison.length ? Math.min(...zeitenSaison) : null;
+
+  let pb=null, pbJahr=null, pbId=null;
+  for(const r of rennen){
+    const z = vaToNum(r.zeit);
+    if(z!=null && (pb==null || z<pb)){ pb=z; pbJahr=jahrVon(r); pbId=r.race_id; }
+  }
+
+  let vgl = [];
+  if(frueher.length){
+    const proJahr = new Map();
+    for(const r of frueher){
+      const z = vaToNum(r.zeit); if(z==null) continue;
+      const j = jahrVon(r);
+      if(!proJahr.has(j) || z < vaToNum(proJahr.get(j).zeit)) proJahr.set(j, r);
+    }
+    const beste = Array.from(proJahr.values());
+    const besteIds = new Set(beste.map(r=>r.race_id));
+    let rest = frueher.filter(r=>!besteIds.has(r.race_id) && vaToNum(r.zeit)!=null);
+    if(sb!=null && rest.length && beste.length<vergleiche){
+      rest = rest.map(r=>({r, d:Math.abs(vaToNum(r.zeit)-sb)})).sort((a,b)=>a.d-b.d)
+        .slice(0, vergleiche-beste.length).map(x=>x.r);
+      vgl = beste.concat(rest);
+    } else vgl = beste;
+    vgl.sort((a,b)=>(b.datum||'').localeCompare(a.datum||''));
+  }
+
+  let ref = null;
+  for(const r of lauf){
+    if(r.status!=='OK') continue;
+    let vollstaendig = true;
+    for(let i=1;i<=10;i++) if(vaToNum(r['h'+i])==null){ vollstaendig=false; break; }
+    if(!vollstaendig) continue;
+    const z = vaToNum(r.zeit);
+    if(z!=null && (ref==null || z<vaToNum(ref.zeit))) ref = r;
+  }
+
+  return {lauf, vgl, sb, pb, pbJahr, pbId, ref};
+}
+
+/* ---------- Master laden (oeffentlich, kein Token noetig) ---------- */
+let vaMaster = null;
+async function vaLadeMaster(){
+  const c = ghConfig();
+  if(!c.repo){ $('vaLeer').style.display='block'; $('vaInhalt').style.display='none'; return; }
+  status('vaStatus','Lade …');
+  try{
+    const url = `https://raw.githubusercontent.com/${c.repo}/${encodeURIComponent(c.branch||'main')}/${c.path||'data/master.csv'}?t=${Date.now()}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    vaMaster = parseCsv(text);
+    status('vaStatus','Aktualisiert · '+vaMaster.length+' Rennen','good');
+    vaBefuelleAuswahl();
+    $('vaLeer').style.display='none'; $('vaInhalt').style.display='block';
+  }catch(err){
+    status('vaStatus','Laden fehlgeschlagen: '+err.message,'bad');
+  }
+}
+function vaBefuelleAuswahl(){
+  const athleten = Array.from(new Set(vaMaster.map(r=>r.athlet).filter(Boolean))).sort();
+  const aSel = $('vaAthlet');
+  const vorherA = aSel.value;
+  aSel.innerHTML = athleten.map(a=>`<option>${esc(a)}</option>`).join('');
+  if(athleten.includes(vorherA)) aSel.value = vorherA;
+  vaBefuelleSaisons();
+}
+function vaBefuelleSaisons(){
+  const athlet = $('vaAthlet').value;
+  const jahre = Array.from(new Set(vaMaster.filter(r=>r.athlet===athlet && r.datum)
+    .map(r=>parseInt(r.datum.slice(0,4),10)))).sort((a,b)=>b-a);
+  const sSel = $('vaSaison');
+  const vorherS = sSel.value;
+  sSel.innerHTML = jahre.map(j=>`<option>${j}</option>`).join('');
+  if(jahre.includes(parseInt(vorherS,10))) sSel.value = vorherS;
+  vaRender();
+}
+$('vaAthlet').addEventListener('change', vaBefuelleSaisons);
+$('vaSaison').addEventListener('change', vaRender);
+$('vaReload').addEventListener('click', vaLadeMaster);
+
+function vaKpi(titel, wert){
+  return `<div><label>${titel}</label><div style="font-size:16px;font-weight:600;color:var(--text)">${wert}</div></div>`;
+}
+function vaZeitText(r){ return r.status!=='OK' ? (r.status||'—') : (vaToNum(r.zeit)!=null ? vaToNum(r.zeit).toFixed(2) : '—'); }
+
+function vaTabelleZeile(r, istPb, istVgl){
+  const seg = vaSegmente(r);
+  const segTxt = seg.map(v=>v!=null?v.toFixed(2):'·').join('&nbsp;&nbsp;');
+  const datum = r.datum ? r.datum.split('-').reverse().join('.') : '';
+  const cls = [istPb?'pb':'', istVgl?'vgl':''].filter(Boolean).join(' ');
+  return `<tr class="${cls}">
+    <td>${istPb?'🏅 ':''}${esc(datum)}</td><td>${esc(r.ort||'')}</td><td>${esc(vaKuerzelRunde(r.runde,r.lauf))}</td>
+    <td class="mono">${esc(r.bahn||'')}</td><td class="mono">${esc(r.rang||'')}</td>
+    <td class="mono"><b>${vaZeitText(r)}</b></td>
+    <td class="mono" style="font-size:11px">${segTxt}</td></tr>`;
+}
+
+function vaRender(){
+  const athlet = $('vaAthlet').value, saison = parseInt($('vaSaison').value,10);
+  if(!athlet || !saison || !vaMaster) return;
+  const aw = vaSelectSeason(vaMaster, athlet, saison);
+  if(!aw){ $('vaTabelle').innerHTML='<p class="hint">Keine Rennen gefunden.</p>'; return; }
+
+  $('vaKpis').innerHTML =
+    vaKpi('Saisonbestzeit', aw.sb!=null?aw.sb.toFixed(2)+' s':'—') +
+    vaKpi('Persönliche Bestzeit', aw.pb!=null?aw.pb.toFixed(2)+' s':'—') +
+    vaKpi('Jahr der PB', aw.pbJahr||'—') +
+    vaKpi('Rennen in der Saison', aw.lauf.length) +
+    vaKpi('Beendet', aw.lauf.filter(r=>r.status==='OK').length);
+
+  let h = '<table class="vatable"><thead><tr><th>Datum</th><th>Ort</th><th>Rd</th><th>Bahn</th><th>Rang</th><th>Zeit</th>'
+    + '<th>Start–H1 · H1–H2 … H9–H10 · H10–Ziel</th></tr></thead><tbody>';
+  for(const r of aw.lauf) h += vaTabelleZeile(r, r.race_id===aw.pbId, false);
+  if(aw.vgl.length){
+    h += `<tr><td colspan="7" style="padding-top:10px;color:var(--muted);font-size:11px;text-transform:uppercase">Vergleich frühere Jahre · neuestes zuerst</td></tr>`;
+    for(const r of aw.vgl) h += vaTabelleZeile(r, r.race_id===aw.pbId, true);
+  }
+  h += '</tbody></table>';
+  $('vaTabelle').innerHTML = h;
+
+  vaZeichneCharts(aw);
+}
+
+/* ---------- Diagramme als reines SVG, kein externer Chart-Code ---------- */
+function vaSvgLinie(titel, yAchse, serien, xLabels, formatY){
+  const W=520, H=260, ml=42, mr=14, mt=14, mb=32;
+  const iw=W-ml-mr, ih=H-mt-mb;
+  const alleWerte = serien.flatMap(s=>s.werte.filter(v=>v!=null));
+  if(!alleWerte.length) return '<p class="hint">Keine Daten für dieses Diagramm.</p>';
+  let ymin = Math.min(...alleWerte), ymax = Math.max(...alleWerte);
+  if(ymin===ymax){ ymin-=0.5; ymax+=0.5; }
+  const pad = (ymax-ymin)*0.08; ymin-=pad; ymax+=pad;
+  const n = xLabels.length;
+  const x = i => ml + (n===1?0:i/(n-1))*iw;
+  const y = v => mt + ih - (v-ymin)/(ymax-ymin)*ih;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:'IBM Plex Mono',monospace">`;
+  // Gitternetz + Y-Achsenbeschriftung
+  const schritte = 4;
+  for(let i=0;i<=schritte;i++){
+    const v = ymin + (ymax-ymin)*i/schritte;
+    const yy = y(v);
+    svg += `<line x1="${ml}" y1="${yy}" x2="${W-mr}" y2="${yy}" stroke="#242B34" stroke-width="1"/>`;
+    svg += `<text x="${ml-6}" y="${yy+3}" text-anchor="end" font-size="9" fill="#6B7A8A">${formatY(v)}</text>`;
+  }
+  if(ymin<0 && ymax>0){
+    svg += `<line x1="${ml}" y1="${y(0)}" x2="${W-mr}" y2="${y(0)}" stroke="#B3261E" stroke-width="1" opacity="0.5"/>`;
+  }
+  // X-Achsenbeschriftung
+  xLabels.forEach((lbl,i)=>{
+    svg += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="8.5" fill="#6B7A8A">${esc(lbl)}</text>`;
+  });
+  // Linien
+  serien.forEach((s,si)=>{
+    const farbe = LINIENFARBEN[si%LINIENFARBEN.length];
+    let pfad = '', begonnen = false;
+    s.werte.forEach((v,i)=>{
+      if(v==null){ begonnen=false; return; }
+      pfad += (begonnen?'L':'M') + x(i) + ',' + y(v) + ' ';
+      begonnen = true;
+    });
+    svg += `<path d="${pfad}" fill="none" stroke="${farbe}" stroke-width="1.8"/>`;
+    s.werte.forEach((v,i)=>{ if(v!=null) svg += `<circle cx="${x(i)}" cy="${y(v)}" r="2.2" fill="${farbe}"/>`; });
+  });
+  svg += '</svg>';
+
+  const legende = serien.map((s,si)=>
+    `<span><i style="background:${LINIENFARBEN[si%LINIENFARBEN.length]}"></i>${esc(s.name)}</span>`).join('');
+  return `<div><h3>${esc(titel)}</h3>${svg}<div class="chartlegend">${legende}</div></div>`;
+}
+
+function vaZeichneCharts(aw){
+  const box = $('vaCharts'); box.innerHTML = '';
+
+  // Chart 1: kumulierter Rueckstand zur Referenz
+  if(aw.ref){
+    const refSeg = [];
+    for(let i=1;i<=10;i++) refSeg.push(vaToNum(aw.ref['h'+i]));
+    refSeg.push(vaToNum(aw.ref.zeit));
+    const serien = aw.lauf.map(r=>{
+      const werte = [];
+      for(let i=1;i<=10;i++){ const a=vaToNum(r['h'+i]), b=refSeg[i-1]; werte.push((a!=null&&b!=null)?a-b:null); }
+      const a=vaToNum(r.zeit), b=refSeg[10]; werte.push((a!=null&&b!=null)?a-b:null);
+      return {name: vaLabel(r), werte};
+    });
+    const xl = ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','Ziel'];
+    const titel = 'Rückstand zu '+vaLabel(aw.ref)+' ('+vaToNum(aw.ref.zeit).toFixed(2)+' s) · unter 0 = schneller';
+    box.insertAdjacentHTML('beforeend', '<div class="chartbox">'+vaSvgLinie(titel,'s',serien,xl,v=>v.toFixed(1))+'</div>');
+  } else {
+    box.insertAdjacentHTML('beforeend', '<div class="chartbox"><p class="hint">Kein vollständiges Rennen als Referenz gefunden.</p></div>');
+  }
+
+  // Chart 2: Ermuedungsprofil
+  const alle = aw.lauf.concat(aw.vgl);
+  const serien2 = alle.map(r=>{
+    const seg = vaSegmente(r).slice(1,10);
+    const kern = seg.filter(v=>v!=null);
+    if(!kern.length) return {name: vaLabel(r), werte: seg.map(()=>null)};
+    const m = Math.min(...kern);
+    return {name: vaLabel(r), werte: seg.map(v=>v!=null?v-m:null)};
+  });
+  const xl2 = ['H1–2','2–3','3–4','4–5','5–6','6–7','7–8','8–9','9–10'];
+  box.insertAdjacentHTML('beforeend', '<div class="chartbox">'+
+    vaSvgLinie('Ermüdungsprofil · Verlust ggü. eigenem schnellsten Abschnitt','s',serien2,xl2,v=>v.toFixed(1))+'</div>');
+}
+
+/* ======================================================================
    Start
    ====================================================================== */
 updateGithubPill();
 renderAthletes();
 renderPreview();
+vaLadeMaster();
 </script>
 </body>
 </html>
