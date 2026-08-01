@@ -131,6 +131,19 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
 .chartlegend span{display:inline-flex;align-items:center;gap:4px}
 .chartlegend i{width:10px;height:10px;border-radius:2px;display:inline-block}
 
+.strip{margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.strip:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}
+.striphd{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.striphd .lanechip{width:24px;height:24px;flex:0 0 24px;border-radius:2px;display:grid;place-items:center;
+  font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;color:#0D1014}
+.stripbar{display:flex;height:32px;border-radius:2px;overflow:hidden;border:1px solid var(--line)}
+.seg{flex-grow:1;position:relative;display:grid;place-items:center;font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px;color:#12151A;font-weight:600;border-right:1px solid rgba(18,21,26,.4);min-width:0}
+.seg:last-child{border-right:0}
+.seg.empty{background:#0D1014;color:#454F5E;font-weight:400}
+.striplbl{display:flex;margin-top:3px}
+.striplbl span{flex-grow:1;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--muted);min-width:0}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -296,6 +309,10 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
       <div><label for="ghPath">Pfad zur Master-Datei</label>
         <input type="text" id="ghPath" placeholder="data/master.csv"></div>
     </div>
+    <div class="row" style="margin-bottom:6px">
+      <button class="ghost sm" id="ghTest">Verbindung testen</button>
+      <span class="status" id="ghTestStatus"></span>
+    </div>
     <div class="foot">
       <button class="ghost sm" id="settingsClear">Token löschen</button>
       <span class="spacer"></span>
@@ -317,6 +334,18 @@ const SCHEMA = ['race_id','datum','athlet','ort','serie','runde','lauf',
   'roh_wettkampf','h1','h2','h3','h4','h5','h6','h7','h8','h9','h10',
   's_start','s1_2','s2_3','s3_4','s4_5','s5_6','s6_7','s7_8','s8_9','s9_10'];
 const NH = 10, SLOTS = NH, SKIP = 'skip';
+// Distanzen fest hinterlegt (Start–H1, 9× Hürdenabstand, H10–Ziel), wie besprochen
+const DIST = [45, 35,35,35,35,35,35,35,35,35, 40];
+const SEGLABEL = ['Start–H1','H1–H2','H2–H3','H3–H4','H4–H5','H5–H6','H6–H7','H7–H8','H8–H9','H9–H10','H10–Ziel'];
+const SEGLABEL_KURZ = ['Start','1–2','2–3','3–4','4–5','5–6','6–7','7–8','8–9','9–10','Ziel'];
+/** Original-Farbfunktion aus der ersten Tool-Fassung: 0 = langsam (dunkelrot), 1 = schnell (gold). */
+function heat(r){
+  const c0=[92,31,23], c1=[255,197,61];
+  const m=c0.map((v,i)=>Math.round(v+(c1[i]-v)*Math.max(0,Math.min(1,r))));
+  return `rgb(${m[0]},${m[1]},${m[2]})`;
+}
+/** Bahnfarben aus der ersten Tool-Fassung, fuer den Lanechip in der Balkenuebersicht. */
+const BAHNFARBEN = ['#FFC53D','#5FBFA0','#7FA8E0','#C77FD4','#E88A5A','#9AD35F','#E0607A','#6FD3D3','#B0B8C4'];
 
 /* ======================================================================
    slug() / race_id() — muss Zeichen fuer Zeichen zu Python passen
@@ -657,46 +686,84 @@ function gueltigeRennen(){
 /* ======================================================================
    Vorschau
    ====================================================================== */
-function renderPreview(){
-  const rennen = gueltigeRennen();
-  $('rennenInfo').textContent = rennen.length + ' Läufer:in(nen) bereit';
+/** Segmentzeiten eines Läufers/einer Läuferin aus den aktuellen Frame-Marken
+    und der Zielzeit — fuer die Live-Balkenuebersicht waehrend des Erfassens. */
+function athletSegmente(a){
+  const t0 = startFrame!=null ? frameToTime(startFrame) : null;
+  const zeit = parseKomma(a.finish);
+  const times = a.marks.map(m => (typeof m==='number' && t0!=null) ? frameToTime(m)-t0 : null);
+  const seg = [times[0]];
+  for(let i=1;i<NH;i++) seg.push((times[i]!=null&&times[i-1]!=null) ? times[i]-times[i-1] : null);
+  seg.push((zeit!=null&&times[NH-1]!=null) ? zeit-times[NH-1] : null);
+  return seg;
+}
+
+function renderStrips(){
   const box = $('preview');
   const wk = aktuelleWettkampfdaten();
 
   if(!wk.datum || !wk.ort){
     box.innerHTML = '<p class="hint">Datum und Ort im Wettkampf-Feld ausfüllen, dann erscheinen hier die Rennen.</p>';
-    $('sendGithub').disabled = true;
     return;
   }
-  if(!rennen.length){
+  const sichtbar = athletes.filter(a=>a.name && a.name.trim());
+  if(!sichtbar.length){
     box.innerHTML = '<p class="hint">Noch keine Läufer:innen mit Namen erfasst.</p>';
-    $('sendGithub').disabled = true;
     return;
   }
 
-  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-    + '<thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase">'
-    + '<th style="padding:4px 8px 4px 0">Läufer:in</th><th>Zeit</th><th>H1</th><th>H10</th><th>Status</th></tr></thead><tbody>';
-  for(const r of rennen){
+  let h = '';
+  for(const a of sichtbar){
+    const r = baueRennen(a, wk);
+    const seg = athletSegmente(a);
+    const geschwArr = seg.map((v,i)=>v!=null ? DIST[i]/v : null);
+    const gW = geschwArr.filter(v=>v!=null);
+    const gmin = gW.length?Math.min(...gW):0, gmax = gW.length?Math.max(...gW):1, rg=(gmax-gmin)||1;
+
+    const bahnNr = parseInt(a.bahn,10);
+    const col = isFinite(bahnNr) ? BAHNFARBEN[(bahnNr-1+9)%9] : '#8A93A2';
     let bekannt = '<span class="hint">neu</span>';
     if(masterZeilen){
       const alt = masterZeilen.find(z=>z.race_id===r.race_id);
       if(alt) bekannt = '<span style="color:var(--signal)">ersetzt bestehendes Rennen (Zeit bisher '+(alt.zeit||'—')+')</span>';
     }
-    const zeitFehlt = r.status==='OK' && !r.zeit;
-    h += `<tr style="border-top:1px solid var(--line)${zeitFehlt?';background:rgba(226,129,108,.12)':''}">
-      <td style="padding:5px 8px 5px 0">${esc(r.athlet)}</td>
-      <td class="mono">${r.zeit || (zeitFehlt?'<span style="color:var(--bad)">fehlt</span>':'—')}</td>
-      <td class="mono">${r.h1||'—'}</td>
-      <td class="mono">${r.h10||'—'}</td>
-      <td>${bekannt}</td></tr>`;
-  }
-  h += '</tbody></table>';
-  if(!masterZeilen){
-    h += '<p class="hint" style="margin-top:8px">Master noch nicht geladen — Duplikate werden erst nach dem Laden erkannt (passiert automatisch beim Senden).</p>';
+    const zeitFehlt = a.statusFeld==='OK' && !parseKomma(a.finish);
+
+    h += `<div class="strip"><div class="striphd">
+      <span class="lanechip" style="background:${col}">${esc(a.bahn||'?')}</span>
+      <strong>${esc(a.name)}</strong>
+      <span class="hint mono">${r.zeit?r.zeit+' s':(zeitFehlt?'<span style="color:var(--bad)">Zielzeit fehlt</span>':a.statusFeld)}</span>
+      <span class="spacer"></span>
+      <span style="font-size:12px">${bekannt}</span>
+      </div>`;
+
+    h += '<div class="stripbar">';
+    seg.forEach((v,i)=>{
+      if(v!=null){
+        const g = DIST[i]/v;
+        const r01 = (g-gmin)/rg;
+        h += `<div class="seg" style="flex-grow:${DIST[i]};background:${heat(r01)}" title="${SEGLABEL[i]} · ${v.toFixed(2)} s">${v.toFixed(2)}</div>`;
+      } else {
+        const grund = (i<NH && a.marks[i]===SKIP) ? 'nicht sichtbar' : 'offen';
+        h += `<div class="seg empty" style="flex-grow:${DIST[i]}" title="${SEGLABEL[i]} · ${grund}">·</div>`;
+      }
+    });
+    h += '</div><div class="striplbl">';
+    SEGLABEL_KURZ.forEach((lbl,i)=>{ h += `<span style="flex-grow:${DIST[i]}">${lbl}</span>`; });
+    h += '</div></div>';
   }
   box.innerHTML = h;
-  $('sendGithub').disabled = !ghConfig().token;
+  if(!masterZeilen){
+    box.insertAdjacentHTML('beforeend','<p class="hint" style="margin-top:4px">Master noch nicht geladen — Duplikate werden erst nach dem Laden erkannt (passiert automatisch beim Senden).</p>');
+  }
+}
+
+function renderPreview(){
+  const rennen = gueltigeRennen();
+  $('rennenInfo').textContent = rennen.length + ' Läufer:in(nen) bereit';
+  renderStrips();
+  const wk = aktuelleWettkampfdaten();
+  $('sendGithub').disabled = !(ghConfig().token && ghConfig().repo && wk.datum && wk.ort && rennen.length);
 }
 
 /* ======================================================================
@@ -756,40 +823,77 @@ function base64ToUtf8(b64){
 /* ======================================================================
    GitHub-Einstellungen
    ====================================================================== */
+function speicherSicher(fn){
+  try{ fn(); return true; }
+  catch(err){
+    alert('Konnte nichts lokal speichern: '+err.message+'\n\nVermutlich blockiert dieser Browser lokalen Speicher '
+      +'(z. B. privater Modus / Inkognito). Ohne lokalen Speicher lässt sich das Repo nicht dauerhaft hinterlegen — '
+      +'bitte im normalen Fenster öffnen.');
+    return false;
+  }
+}
 function ghConfig(){
-  return {
-    token: localStorage.getItem('touchdown_gh_token') || '',
-    repo: localStorage.getItem('touchdown_gh_repo') || '',
-    branch: localStorage.getItem('touchdown_gh_branch') || 'main',
-    path: localStorage.getItem('touchdown_gh_path') || 'data/master.csv',
-  };
+  try{
+    return {
+      token: localStorage.getItem('touchdown_gh_token') || '',
+      repo: localStorage.getItem('touchdown_gh_repo') || '',
+      branch: localStorage.getItem('touchdown_gh_branch') || 'main',
+      path: localStorage.getItem('touchdown_gh_path') || 'data/master.csv',
+    };
+  }catch(err){ return {token:'',repo:'',branch:'main',path:'data/master.csv'}; }
 }
 function updateGithubPill(){
   const c = ghConfig();
   const p = $('githubPill');
   if(c.token && c.repo){ p.textContent = 'GitHub verbunden'; p.className='pill on'; }
+  else if(c.repo){ p.textContent = 'GitHub verbunden (nur lesen)'; p.className='pill warn'; }
   else { p.textContent = 'GitHub nicht verbunden'; p.className='pill off'; }
 }
 $('openSettings').addEventListener('click',()=>{
   const c = ghConfig();
   $('ghToken').value = c.token; $('ghRepo').value = c.repo;
   $('ghBranch').value = c.branch; $('ghPath').value = c.path;
+  status('ghTestStatus','','');
   $('settingsOverlay').classList.add('open');
 });
 $('settingsCancel').addEventListener('click',()=>$('settingsOverlay').classList.remove('open'));
 $('settingsOverlay').addEventListener('click',e=>{if(e.target.id==='settingsOverlay')$('settingsOverlay').classList.remove('open')});
 $('settingsSave').addEventListener('click',()=>{
-  localStorage.setItem('touchdown_gh_token', $('ghToken').value.trim());
-  localStorage.setItem('touchdown_gh_repo', $('ghRepo').value.trim());
-  localStorage.setItem('touchdown_gh_branch', $('ghBranch').value.trim()||'main');
-  localStorage.setItem('touchdown_gh_path', $('ghPath').value.trim()||'data/master.csv');
-  updateGithubPill(); renderPreview();
-  $('settingsOverlay').classList.remove('open');
+  const ok = speicherSicher(()=>{
+    localStorage.setItem('touchdown_gh_token', $('ghToken').value.trim());
+    localStorage.setItem('touchdown_gh_repo', $('ghRepo').value.trim());
+    localStorage.setItem('touchdown_gh_branch', $('ghBranch').value.trim()||'main');
+    localStorage.setItem('touchdown_gh_path', $('ghPath').value.trim()||'data/master.csv');
+  });
+  updateGithubPill(); renderPreview(); vaLadeMaster();
+  if(ok) $('settingsOverlay').classList.remove('open');
 });
 $('settingsClear').addEventListener('click',()=>{
-  ['touchdown_gh_token','touchdown_gh_repo','touchdown_gh_branch','touchdown_gh_path'].forEach(k=>localStorage.removeItem(k));
+  speicherSicher(()=>{
+    ['touchdown_gh_token','touchdown_gh_repo','touchdown_gh_branch','touchdown_gh_path'].forEach(k=>localStorage.removeItem(k));
+  });
   $('ghToken').value=''; $('ghRepo').value=''; $('ghBranch').value=''; $('ghPath').value='';
   updateGithubPill(); renderPreview();
+});
+$('ghTest').addEventListener('click', async () => {
+  const repo = $('ghRepo').value.trim(), token = $('ghToken').value.trim();
+  const branch = $('ghBranch').value.trim()||'main', path = $('ghPath').value.trim()||'data/master.csv';
+  if(!repo){ status('ghTestStatus','Bitte zuerst ein Repo eintragen (owner/name).','warn'); return; }
+  status('ghTestStatus','Teste …','');
+  try{
+    const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}?ref=${encodeURIComponent(branch)}`;
+    const headers = token ? {'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json'} : {'Accept':'application/vnd.github+json'};
+    const res = await fetch(url, {headers});
+    if(res.status===404){ status('ghTestStatus','Repo erreichbar, aber Datei/Branch nicht gefunden — Pfad und Branch prüfen.','warn'); return; }
+    if(res.status===401){ status('ghTestStatus','Token wird abgelehnt (401) — Token prüfen oder neu erstellen.','bad'); return; }
+    if(res.status===403){ status('ghTestStatus','Zugriff verweigert (403) — Token braucht "Contents: Read and write" auf genau dieses Repo.','bad'); return; }
+    if(!res.ok){ status('ghTestStatus','Fehler '+res.status+' — Details siehe Browser-Konsole.','bad'); return; }
+    const data = await res.json();
+    if(!token){ status('ghTestStatus','Lesen funktioniert (öffentlich). Ohne Token kein Senden — Token ergänzen.','warn'); return; }
+    status('ghTestStatus','Verbindung funktioniert — Datei gefunden, '+Math.round((data.size||0)/1024)+' KB, schreibbar mit diesem Token.','good');
+  }catch(err){
+    status('ghTestStatus','Netzwerkfehler: '+err.message,'bad');
+  }
 });
 
 /* ======================================================================
