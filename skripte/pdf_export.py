@@ -25,6 +25,13 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Table, TableStyle,
 from master_io import load_master
 from auswertung import select_season, segmente, abschnittsbezeichnung, label
 
+# Liberation Sans ist metrisch mit Arial/Helvetica kompatibel - so wirken die
+# matplotlib-Diagramme wie aus einem Guss mit der Helvetica-Tabelle daneben,
+# statt wie ein Fremdkoerper in der matplotlib-Standardschrift (DejaVu Sans).
+matplotlib.rcParams['font.family'] = 'sans-serif'
+matplotlib.rcParams['font.sans-serif'] = ['Liberation Sans', 'Arial', 'Helvetica', 'DejaVu Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False
+
 TINTE = colors.HexColor('#1F3348')
 GRAU = colors.HexColor('#6B7A8A')
 GOLD = colors.HexColor('#B8860B')
@@ -32,6 +39,12 @@ GOLD_HELL = colors.HexColor('#FBF0CE')
 SCHRITTZEILE = colors.HexColor('#EDF1F5')
 RAND = colors.HexColor('#B8C4D0')
 VERGLEICH_TEXT = colors.HexColor('#5A6B7C')
+
+# Dieselbe Palette wie im Markier-Tool (BAHNFARBEN) - damit Live-Vorschau,
+# xlsx-Kontext und PDF optisch zur selben Familie gehoeren statt matplotlibs
+# generischer Standardfarben (Blau/Orange/Gruen/Rot/Lila).
+LINIENFARBEN = ['#C8571F', '#2E7D6B', '#3B6FA0', '#A0439B', '#B8860B',
+                '#5E8C3F', '#B34A5C', '#3F8C8C', '#6B5B95']
 
 SPALTEN = (['Datum', 'Ort', 'Rd', 'Bahn', 'Rang', 'Zeit', '0–200', '200–400', 'Diff']
            + ['Start–H1'] + [f'H{i}–H{i+1}' for i in range(1, 10)] + ['H10–Ziel'])
@@ -322,8 +335,8 @@ def _stil_achse(ax):
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_color('#B8C4D0')
     ax.spines['bottom'].set_color('#B8C4D0')
-    ax.tick_params(colors='#3D4B59', labelsize=8)
-    ax.grid(axis='y', color='#E4E9ED', linewidth=0.8)
+    ax.tick_params(colors='#3D4B59', labelsize=8.5)
+    ax.grid(axis='y', color='#D8DEE4', linewidth=0.9)
     ax.set_axisbelow(True)
 
 
@@ -335,23 +348,25 @@ def grafik_rueckstand(lauf, ref):
     xt = [f'H{i}' for i in range(1, 11)] + ['Ziel']
     ref_h = [ref.get(f'h{i}') for i in range(1, 11)] + [ref.get('zeit')]
 
-    for _, r in lauf.iterrows():
+    for i, (_, r) in enumerate(lauf.iterrows()):
         h = [r.get(f'h{i}') for i in range(1, 11)] + [r.get('zeit')]
         y = [(a - b) if pd.notna(a) and pd.notna(b) else float('nan')
              for a, b in zip(h, ref_h)]
-        ax.plot(x, y, marker='o', markersize=2.5, linewidth=1.6, label=label(r))
+        ax.plot(x, y, marker='o', markersize=3, linewidth=2.0,
+                color=LINIENFARBEN[i % len(LINIENFARBEN)], label=label(r))
 
-    ax.axhline(0, color='#B3261E', linewidth=1.2, alpha=0.6)
+    ax.axhline(0, color='#B3261E', linewidth=1.2, alpha=0.55)
     ax.set_xticks(x, xt)
-    ax.set_ylabel('Sekunden', fontsize=8)
+    ax.set_ylabel('Sekunden', fontsize=8.5)
     ref_name = f"{pd.to_datetime(ref['datum']).strftime('%d.%m.%y')} {ref['ort']} — {float(ref['zeit']):.2f} s"
     ax.set_title(f'Wo wird die Zeit gewonnen und verloren?   Referenz: {ref_name}   ·   '
-                'unter der Nulllinie = schneller', fontsize=9.5, color='#1A2430', pad=10)
+                'unter der Nulllinie = schneller', fontsize=11, fontweight='bold',
+                color='#1F3348', pad=12)
     _stil_achse(ax)
-    ax.legend(fontsize=7, frameon=False, loc='upper left', bbox_to_anchor=(1.01, 1.0))
+    ax.legend(fontsize=8, frameon=False, loc='upper left', bbox_to_anchor=(1.01, 1.0))
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', bbox_inches='tight')
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -364,6 +379,7 @@ def grafik_ermuedung(rennen):
     x = list(range(1, 10))
     xt = [f'H{i}–H{i+1}' for i in range(1, 10)]
 
+    i = 0
     for _, r in rennen.iterrows():
         seg, _ = segmente(r)
         kern = [v for v in seg[1:10] if v is not None]
@@ -371,17 +387,19 @@ def grafik_ermuedung(rennen):
             continue
         m = min(kern)
         y = [v - m if v is not None else float('nan') for v in seg[1:10]]
-        ax.plot(x, y, marker='o', markersize=2.5, linewidth=1.6, label=label(r))
+        ax.plot(x, y, marker='o', markersize=3, linewidth=2.0,
+                color=LINIENFARBEN[i % len(LINIENFARBEN)], label=label(r))
+        i += 1
 
     ax.set_xticks(x, xt)
-    ax.set_ylabel('Sekunden langsamer', fontsize=8)
+    ax.set_ylabel('Sekunden langsamer', fontsize=8.5)
     ax.set_title('Ermüdungsprofil — Verlust gegenüber dem eigenen schnellsten Abschnitt',
-                fontsize=9.5, color='#1A2430', pad=10)
+                fontsize=11, fontweight='bold', color='#1F3348', pad=12)
     _stil_achse(ax)
-    ax.legend(fontsize=7, frameon=False, loc='upper left', bbox_to_anchor=(1.01, 1.0))
+    ax.legend(fontsize=8, frameon=False, loc='upper left', bbox_to_anchor=(1.01, 1.0))
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', bbox_inches='tight')
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
     plt.close(fig)
     buf.seek(0)
     return buf
