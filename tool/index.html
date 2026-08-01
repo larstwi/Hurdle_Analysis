@@ -80,7 +80,7 @@ video{width:100%;display:block;max-height:52vh;object-fit:contain;background:#00
 .arow input{width:78px}
 .arow input.wide{width:110px}
 
-.slots{display:grid;grid-template-columns:repeat(11,1fr);gap:3px;padding:9px 10px 4px}
+.slots{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;padding:9px 10px 4px}
 .slot{border:1px solid var(--line);border-radius:2px;background:#0D1014;color:var(--muted);
   font-family:"IBM Plex Mono",monospace;font-size:10px;text-align:center;padding:5px 0;cursor:pointer}
 .slot.set{background:var(--panel);color:var(--text);border-color:#4A5566}
@@ -179,18 +179,11 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
     </div>
 
     <div class="card">
-      <div class="hd"><h2>Wettkampf</h2><span class="spacer"></span><span class="hint">gilt für alle Läufer unten</span></div>
+      <div class="hd"><h2>Wettkampf</h2><span class="spacer"></span><span class="hint">gilt für alle Läufer:innen unten</span></div>
       <div class="bd">
         <div class="wkgrid">
           <div><label for="wkDatum">Datum</label><input type="date" id="wkDatum"></div>
-          <div><label for="wkOrt">Ort</label><input type="text" id="wkOrt" placeholder="z. B. Zürich"></div>
-          <div><label for="wkSerie">Serie</label>
-            <select id="wkSerie">
-              <option value="">—</option>
-              <option>SVM</option><option>SM</option><option>EM</option><option>WM</option>
-              <option>U23</option><option>U20</option>
-            </select>
-          </div>
+          <div><label for="wkOrt">Ort</label><input type="text" id="wkOrt" placeholder="z. B. SM Zürich"></div>
           <div><label for="wkRunde">Runde</label>
             <select id="wkRunde">
               <option value="">—</option>
@@ -204,13 +197,13 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
     </div>
   </div>
 
-  <!-- ============ RECHTS: Läufer ============ -->
+  <!-- ============ RECHTS: Läufer:innen ============ -->
   <div>
     <div class="card">
-      <div class="hd"><h2>Läufer</h2><span class="spacer"></span><button id="addAthlete" class="ghost sm">+ Läufer</button></div>
+      <div class="hd"><h2>Läufer:innen</h2><span class="spacer"></span><button id="addAthlete" class="ghost sm">+ Läufer:in</button></div>
       <div class="bd">
         <div id="athletes"></div>
-        <p class="hint" id="noAth">Noch keine Läufer. Name, Bahn und Rang erfassen, dann Hürde für Hürde markieren und die Schritte eintragen.</p>
+        <p class="hint" id="noAth">Noch keine Läufer:innen. Name, Bahn und Rang erfassen, dann Hürde für Hürde markieren und die Schritte eintragen.</p>
       </div>
     </div>
 
@@ -220,7 +213,7 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
         <div><span class="kbd">Leer</span> Play / Pause</div>
         <div><span class="kbd">←</span> <span class="kbd">→</span> ± 1 Frame</div>
         <div><span class="kbd">⇧←</span> <span class="kbd">⇧→</span> ± 10 Frames</div>
-        <div><span class="kbd">1</span>…<span class="kbd">9</span> Läufer nach Bahn</div>
+        <div><span class="kbd">1</span>…<span class="kbd">9</span> Läufer:in nach Bahn</div>
         <div><span class="kbd">Enter</span> Touchdown setzen</div>
         <div><span class="kbd">X</span> Hürde nicht sichtbar</div>
         <div><span class="kbd">⌫</span> Feld leeren</div>
@@ -228,24 +221,12 @@ footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align
         <div><span class="kbd">N</span> nächstes Feld</div>
       </div></div>
     </div>
-
-    <div class="card">
-      <div class="hd"><h2>Strecken</h2></div>
-      <div class="bd">
-        <div class="row">
-          <div><label for="dStart">Start → H1 (m)</label><input type="number" id="dStart" value="45" step="0.1" style="width:80px"></div>
-          <div><label for="dGap">Hürdenabstand (m)</label><input type="number" id="dGap" value="35" step="0.1" style="width:80px"></div>
-          <div><label for="dFin">H10 → Ziel (m)</label><input type="number" id="dFin" value="40" step="0.1" style="width:80px"></div>
-        </div>
-        <p class="hint" style="margin:8px 0 0">Nur zur Kontrolle beim Erfassen — im Master werden ausschliesslich Touchdown-Zeiten gespeichert.</p>
-      </div>
-    </div>
   </div>
 </div>
 
 <!-- ============ ABSCHICKEN ============ -->
 <div class="card">
-  <div class="hd"><h2>Abschicken</h2><span class="spacer"></span><span class="hint" id="rennenInfo">0 Läufer bereit</span></div>
+  <div class="hd"><h2>Abschicken</h2><span class="spacer"></span><span class="hint" id="rennenInfo">0 Läufer:innen bereit</span></div>
   <div class="bd">
     <div id="preview" class="hint">Noch keine vollständigen Rennen zum Abschicken.</div>
     <div class="sendbar" style="margin-top:12px">
@@ -298,7 +279,7 @@ const SCHEMA = ['race_id','datum','athlet','ort','serie','runde','lauf',
   'bahn','rang','zeit','status','fps','quelle','erfasst_am','video','notiz',
   'roh_wettkampf','h1','h2','h3','h4','h5','h6','h7','h8','h9','h10',
   's_start','s1_2','s2_3','s3_4','s4_5','s5_6','s6_7','s7_8','s8_9','s9_10'];
-const NH = 10, SLOTS = NH + 1, SKIP = 'skip';
+const NH = 10, SLOTS = NH, SKIP = 'skip';
 
 /* ======================================================================
    slug() / race_id() — muss Zeichen fuer Zeichen zu Python passen
@@ -450,12 +431,13 @@ function setStart(f){
 }
 
 /* ======================================================================
-   Läufer
+   Läufer:innen
    ====================================================================== */
 function newAthlete(){
-  const used = athletes.map(a=>a.lane); let lane=1; while(used.includes(lane)&&lane<9)lane++;
+  const used = athletes.map(a=>parseInt(a.bahn,10)).filter(isFinite);
+  let bahn=1; while(used.includes(bahn)&&bahn<9)bahn++;
   return {
-    id: Math.random().toString(36).slice(2,9), lane, name:'', bahn:'', rang:'',
+    id: Math.random().toString(36).slice(2,9), name:'', bahn:String(bahn), rang:'',
     statusFeld:'OK', finish:'',
     marks: new Array(SLOTS).fill(null),
     schritte: new Array(NH).fill(''),
@@ -469,28 +451,27 @@ $('addAthlete').addEventListener('click',()=>{
 function renderAthletes(){
   const box = $('athletes'); box.innerHTML = '';
   $('noAth').style.display = athletes.length ? 'none' : 'block';
-  athletes.sort((a,b)=>a.lane-b.lane);
+  athletes.sort((a,b)=>{
+    const ba = parseInt(a.bahn,10), bb = parseInt(b.bahn,10);
+    const va = isFinite(ba) ? ba : 99, vb = isFinite(bb) ? bb : 99;
+    return va - vb;
+  });
 
   for(const a of athletes){
     const el = document.createElement('div');
     el.className = 'athlete' + (a.id===selId?' active':'');
 
     const hd = document.createElement('div'); hd.className = 'ahd';
-    const ln = document.createElement('select');
-    for(let i=1;i<=9;i++){const o=document.createElement('option');o.value=i;o.textContent='Bahn '+i;if(i===a.lane)o.selected=true;ln.appendChild(o)}
-    ln.addEventListener('change',()=>{a.lane=+ln.value;renderAthletes();renderPreview()});
-    hd.appendChild(ln);
     const nm = document.createElement('input'); nm.type='text'; nm.placeholder='Name'; nm.value=a.name;
     nm.addEventListener('input',()=>{a.name=nm.value;renderPreview()});
-    nm.addEventListener('focus',()=>{selId=a.id;renderAthletes()});
     hd.appendChild(nm);
-    const del = document.createElement('button'); del.className='ghost sm'; del.textContent='✕'; del.title='Läufer entfernen';
+    const del = document.createElement('button'); del.className='ghost sm'; del.textContent='✕'; del.title='Läufer:in entfernen';
     del.addEventListener('click',()=>{athletes=athletes.filter(x=>x.id!==a.id);if(selId===a.id)selId=null;renderAthletes();renderPreview()});
     hd.appendChild(del);
     el.appendChild(hd);
 
     const r2 = document.createElement('div'); r2.className = 'arow';
-    r2.appendChild(feld('Bahn', a.bahn, v=>{a.bahn=v;renderPreview()}, 'number'));
+    r2.appendChild(feld('Bahn', a.bahn, v=>{a.bahn=v;renderAthletes();renderPreview()}, 'number', '', 'change'));
     r2.appendChild(feld('Rang', a.rang, v=>{a.rang=v;renderPreview()}, 'number'));
     const statusWrap = document.createElement('div');
     statusWrap.innerHTML = '<label>Status</label>';
@@ -498,7 +479,7 @@ function renderAthletes(){
     ['OK','DNF','DNS','DSQ'].forEach(s=>{const o=document.createElement('option');o.textContent=s;if(s===a.statusFeld)o.selected=true;sel.appendChild(o)});
     sel.addEventListener('change',()=>{a.statusFeld=sel.value;renderPreview()});
     statusWrap.appendChild(sel); r2.appendChild(statusWrap);
-    const ft = feld('Zielzeit (s)', a.finish, v=>{a.finish=v;renderPreview()}, 'text', 'wide');
+    const ft = feld('Zielzeit (s) — Pflicht', a.finish, v=>{a.finish=v;renderPreview()}, 'text', 'wide');
     ft.querySelector('input').placeholder = 'z. B. 51,66';
     r2.appendChild(ft);
     el.appendChild(r2);
@@ -508,7 +489,7 @@ function renderAthletes(){
       const m = a.marks[i];
       const b = document.createElement('div');
       b.className = 'slot'+(typeof m==='number'?' set':'')+(m===SKIP?' skip':'')+((a.id===selId&&i===targetSlot)?' target':'');
-      b.textContent = i<NH ? ('H'+(i+1)) : 'ZIEL';
+      b.textContent = 'H'+(i+1);
       b.title = typeof m==='number' ? ('Frame '+m) : (m===SKIP?'nicht sichtbar':'offen');
       b.addEventListener('click',()=>{selId=a.id;targetSlot=i;renderAthletes()});
       sl.appendChild(b);
@@ -518,7 +499,7 @@ function renderAthletes(){
     if(a.id===selId){
       const bar = document.createElement('div'); bar.className='slotbar';
       const lb = document.createElement('span'); lb.className='lbl';
-      lb.textContent = (targetSlot<NH?'H'+(targetSlot+1):'Ziel')+' :';
+      lb.textContent = 'H'+(targetSlot+1)+' :';
       bar.appendChild(lb);
       const mk = document.createElement('button'); mk.className='primary sm'; mk.textContent='Touchdown setzen';
       mk.addEventListener('click',mark); bar.appendChild(mk);
@@ -545,11 +526,11 @@ function renderAthletes(){
     box.appendChild(el);
   }
 }
-function feld(label, val, onInput, type='text', extraClass=''){
+function feld(label, val, onInput, type='text', extraClass='', event='input'){
   const wrap = document.createElement('div');
   wrap.innerHTML = `<label>${label}</label>`;
   const inp = document.createElement('input'); inp.type=type; inp.value=val; if(extraClass)inp.className=extraClass;
-  inp.addEventListener('input',()=>onInput(inp.value));
+  inp.addEventListener(event,()=>onInput(inp.value));
   wrap.appendChild(inp);
   return wrap;
 }
@@ -577,12 +558,12 @@ document.addEventListener('keydown',e=>{
   else if(k==='s'||k==='S'){e.preventDefault();if(vidReady)setStart(curFrame())}
   else if(k==='n'||k==='N'){e.preventDefault();targetSlot=(targetSlot+1)%SLOTS;renderAthletes()}
   else if(/^[1-9]$/.test(k)){
-    const a=athletes.find(x=>x.lane===+k);
+    const a=athletes.find(x=>parseInt(x.bahn,10)===+k);
     if(a){selId=a.id;targetSlot=nextOpen(a,0);renderAthletes()}
   }
 });
 
-['wkDatum','wkOrt','wkSerie','wkRunde','wkLauf'].forEach(id=>$(id).addEventListener('input',renderPreview));
+['wkDatum','wkOrt','wkRunde','wkLauf'].forEach(id=>$(id).addEventListener('input',renderPreview));
 
 /* ======================================================================
    Rennen aus dem aktuellen Zustand bauen
@@ -600,11 +581,7 @@ function rundeStr(v){
 
 function baueRennen(a, wk){
   const t0 = startFrame!=null ? frameToTime(startFrame) : null;
-  const zeitManuell = parseKomma(a.finish);
-  let zeit = zeitManuell;
-  if(zeit==null && t0!=null && typeof a.marks[NH]==='number'){
-    zeit = frameToTime(a.marks[NH]) - t0;
-  }
+  const zeit = parseKomma(a.finish);
   const h = [];
   for(let i=0;i<NH;i++){
     const m = a.marks[i];
@@ -630,7 +607,7 @@ function baueRennen(a, wk){
 function aktuelleWettkampfdaten(){
   return {
     datum: $('wkDatum').value, ort: $('wkOrt').value.trim(),
-    serie: $('wkSerie').value, runde: $('wkRunde').value, lauf: $('wkLauf').value,
+    serie: '', runde: $('wkRunde').value, lauf: $('wkLauf').value,
   };
 }
 
@@ -645,7 +622,7 @@ function gueltigeRennen(){
    ====================================================================== */
 function renderPreview(){
   const rennen = gueltigeRennen();
-  $('rennenInfo').textContent = rennen.length + ' Läufer bereit';
+  $('rennenInfo').textContent = rennen.length + ' Läufer:in(nen) bereit';
   const box = $('preview');
   const wk = aktuelleWettkampfdaten();
 
@@ -655,23 +632,24 @@ function renderPreview(){
     return;
   }
   if(!rennen.length){
-    box.innerHTML = '<p class="hint">Noch keine Läufer mit Namen erfasst.</p>';
+    box.innerHTML = '<p class="hint">Noch keine Läufer:innen mit Namen erfasst.</p>';
     $('sendGithub').disabled = true;
     return;
   }
 
   let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
     + '<thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase">'
-    + '<th style="padding:4px 8px 4px 0">Läufer</th><th>Zeit</th><th>H1</th><th>H10</th><th>Status</th></tr></thead><tbody>';
+    + '<th style="padding:4px 8px 4px 0">Läufer:in</th><th>Zeit</th><th>H1</th><th>H10</th><th>Status</th></tr></thead><tbody>';
   for(const r of rennen){
     let bekannt = '<span class="hint">neu</span>';
     if(masterZeilen){
       const alt = masterZeilen.find(z=>z.race_id===r.race_id);
       if(alt) bekannt = '<span style="color:var(--signal)">ersetzt bestehendes Rennen (Zeit bisher '+(alt.zeit||'—')+')</span>';
     }
-    h += `<tr style="border-top:1px solid var(--line)">
+    const zeitFehlt = r.status==='OK' && !r.zeit;
+    h += `<tr style="border-top:1px solid var(--line)${zeitFehlt?';background:rgba(226,129,108,.12)':''}">
       <td style="padding:5px 8px 5px 0">${esc(r.athlet)}</td>
-      <td class="mono">${r.zeit||'—'}</td>
+      <td class="mono">${r.zeit || (zeitFehlt?'<span style="color:var(--bad)">fehlt</span>':'—')}</td>
       <td class="mono">${r.h1||'—'}</td>
       <td class="mono">${r.h10||'—'}</td>
       <td>${bekannt}</td></tr>`;
@@ -885,8 +863,6 @@ $('downloadJson').addEventListener('click',()=>{
   a.click(); URL.revokeObjectURL(url);
   status('sendStatus','JSON heruntergeladen.','good');
 });
-
-['dStart','dGap','dFin'].forEach(id=>{ if($(id)) $(id).addEventListener('input',()=>{}); });
 
 /* ======================================================================
    Start
