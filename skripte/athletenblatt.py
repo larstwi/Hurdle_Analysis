@@ -167,6 +167,9 @@ def rennblock(ws, oben, quelle, daten, blass=False):
         elif j == C_ZEIT or j in (C_H200, C_H400) or j >= C_SEG0:
             c.number_format = '0.00'
 
+    for j in range(1, C_DIFF + 1):
+        ws.cell(unten, j).border = UNTEN
+
     for j in range(C_SEG0, BREIT + 1):
         c = ws.cell(unten, j)
         c.font = Font(name=ARIAL, size=9, color='3D4B59', italic=blass)
