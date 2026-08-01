@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Touchdown — 400 m Hürden Videoanalyse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12151A; --panel:#1A1F26; --panel-2:#222831; --line:#333C48;
+  --text:#E8E6E1; --muted:#8A93A2; --signal:#FFC53D; --ok:#5FBFA0; --bad:#E2816C;
+  --pad:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;font-weight:700;letter-spacing:.02em;margin:0}
+button,input,select,textarea{font-family:inherit;font-size:14px}
+button{background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+button.primary{background:var(--signal);color:#1A1200;border-color:var(--signal);font-weight:600}
+button.ghost{background:transparent}
+button.sm{padding:4px 9px;font-size:12.5px}
+button:disabled{opacity:.4;cursor:not-allowed}
+input[type=text],input[type=number],input[type=password],input[type=date],select{
+  background:#0D1014;color:var(--text);border:1px solid var(--line);border-radius:3px;padding:6px 8px}
+input[type=number],input.mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);display:block;margin-bottom:4px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+.topbar{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px var(--pad);
+  border-bottom:1px solid var(--line);background:linear-gradient(180deg,#1A1F26,#12151A)}
+.topbar h1{font-size:22px;text-transform:uppercase}
+.topbar .sub{color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.spacer{flex:1}
+.pill{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pill.on{border-color:var(--ok);color:var(--ok)}
+.pill.warn{border-color:var(--signal);color:var(--signal)}
+.pill.off{border-color:var(--muted);color:var(--muted)}
+
+.wrap{max-width:1400px;margin:0 auto;padding:var(--pad)}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:var(--pad)}
+@media(max-width:960px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:var(--pad)}
+.card>.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.card>.hd h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.card>.bd{padding:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.hint{color:var(--muted);font-size:12.5px}
+
+.stage{position:relative;background:#000;border-radius:3px;overflow:hidden;line-height:0}
+video{width:100%;display:block;max-height:52vh;object-fit:contain;background:#000}
+.dropzone{border:1.5px dashed var(--line);border-radius:4px;padding:30px 18px;text-align:center;color:var(--muted);cursor:pointer;background:#0D1014}
+.dropzone.hot{border-color:var(--signal);color:var(--text)}
+.transport{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.tc{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:600}
+.tc .f{color:var(--muted);font-size:13px;font-weight:400}
+.scrub{width:100%;margin-top:10px;accent-color:var(--signal)}
+.startbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.status{font-size:12.5px;color:var(--muted);min-height:19px}
+.status.good{color:var(--ok)}
+.status.warn{color:var(--signal)}
+.status.bad{color:var(--bad)}
+
+/* Wettkampf-Kopf */
+.wkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.wkgrid input,.wkgrid select{width:100%}
+
+/* Athleten */
+.athlete{border:1px solid var(--line);border-radius:4px;margin-bottom:10px;background:var(--panel-2)}
+.athlete.active{border-color:var(--signal)}
+.ahd{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ahd input[type=text]{flex:1;min-width:120px;font-weight:600}
+.arow{display:flex;gap:8px;flex-wrap:wrap;padding:9px 10px;border-bottom:1px solid var(--line)}
+.arow>div{display:flex;flex-direction:column;gap:3px}
+.arow input{width:78px}
+.arow input.wide{width:110px}
+
+.slots{display:grid;grid-template-columns:repeat(11,1fr);gap:3px;padding:9px 10px 4px}
+.slot{border:1px solid var(--line);border-radius:2px;background:#0D1014;color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;text-align:center;padding:5px 0;cursor:pointer}
+.slot.set{background:var(--panel);color:var(--text);border-color:#4A5566}
+.slot.skip{background:#0D1014;color:#5A6474;text-decoration:line-through}
+.slot.target{border-color:var(--signal);color:var(--signal)}
+.slot:hover{border-color:var(--muted)}
+.slotbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:0 10px 8px}
+.slotbar .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+
+.schritte{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;padding:0 10px 10px}
+.schritte .sc{display:flex;flex-direction:column;gap:2px}
+.schritte .sc span{font-size:8.5px;color:var(--muted);text-align:center;font-family:"IBM Plex Mono",monospace}
+.schritte input{width:100%;padding:4px 2px;text-align:center;font-size:12px}
+
+.kbd{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:3px;padding:1px 5px;background:#0D1014;color:var(--text)}
+.keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;font-size:12.5px;color:var(--muted)}
+
+/* Einstellungen */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50}
+.overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:6px;max-width:520px;width:100%;padding:20px}
+.modal h2{font-size:15px;margin-bottom:14px}
+.modal .row2{display:grid;gap:10px;margin-bottom:10px}
+.modal .row2 input{width:100%}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+
+/* Abschicken */
+.sendbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.log{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;
+  max-height:160px;overflow-y:auto;background:#0D1014;border:1px solid var(--line);border-radius:3px;padding:8px;margin-top:8px}
+.log .ok{color:var(--ok)}
+.log .warn{color:var(--signal)}
+.log .bad{color:var(--bad)}
+
+footer{padding:20px var(--pad) 40px;color:var(--muted);font-size:12px;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Touchdown</h1>
+  <span class="sub">400 m Hürden — Videoanalyse</span>
+  <span class="spacer"></span>
+  <span class="pill" id="fpsPill">Bildrate offen</span>
+  <span class="pill off" id="githubPill">GitHub nicht verbunden</span>
+  <button class="ghost sm" id="openSettings">⚙ Einstellungen</button>
+</div>
+
+<div class="wrap">
+<div class="grid">
+
+  <!-- ============ LINKS: Video + Wettkampf ============ -->
+  <div>
+    <div class="card">
+      <div class="hd"><h2>Video</h2><span class="spacer"></span><span class="hint" id="fileName">kein Video geladen</span></div>
+      <div class="bd">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button">
+          Video hierher ziehen oder klicken<br>
+          <span style="font-size:12px">Alles läuft lokal im Browser — nur beim Abschicken geht eine Anfrage an GitHub.</span>
+        </div>
+        <input type="file" id="fileInput" accept="video/*" hidden>
+
+        <div id="player" style="display:none">
+          <div class="stage"><video id="video" playsinline preload="auto"></video></div>
+          <input type="range" id="scrub" class="scrub" min="0" max="1000" value="0" step="1" aria-label="Position im Video">
+          <div class="transport">
+            <span class="tc" id="tc">0,000 s <span class="f" id="fnum">F 0</span></span>
+            <span class="spacer"></span>
+            <button id="b10back" title="10 Frames zurück (Shift+←)">−10</button>
+            <button id="b1back" title="1 Frame zurück (←)">−1</button>
+            <button id="bplay" class="ghost" title="Play/Pause (Leertaste)">▶︎ Play</button>
+            <button id="b1fwd" title="1 Frame vor (→)">+1</button>
+            <button id="b10fwd" title="10 Frames vor (Shift+→)">+10</button>
+          </div>
+
+          <div class="startbar">
+            <button id="setStart" class="primary" title="Taste S">Startframe setzen</button>
+            <span class="hint" id="startInfo">Start noch nicht gesetzt</span>
+            <span class="spacer"></span>
+            <select id="rate" aria-label="Abspieltempo">
+              <option value="1">1×</option><option value="0.5">0,5×</option>
+              <option value="0.25">0,25×</option><option value="0.1">0,1×</option>
+            </select>
+          </div>
+
+          <div class="status" id="fpsStatus" style="margin-top:10px"></div>
+          <div class="row" id="fpsManual" style="display:none;margin-top:6px">
+            <div><label for="fps">Bildrate manuell</label><input type="number" id="fps" value="50" min="1" max="1000" step="0.001" style="width:110px"></div>
+            <button id="remeasure" class="ghost sm">neu messen</button>
+          </div>
+          <button id="fpsToggle" class="ghost sm" style="margin-top:8px">Bildrate korrigieren</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><h2>Wettkampf</h2><span class="spacer"></span><span class="hint">gilt für alle Läufer unten</span></div>
+      <div class="bd">
+        <div class="wkgrid">
+          <div><label for="wkDatum">Datum</label><input type="date" id="wkDatum"></div>
+          <div><label for="wkOrt">Ort</label><input type="text" id="wkOrt" placeholder="z. B. Zürich"></div>
+          <div><label for="wkSerie">Serie</label>
+            <select id="wkSerie">
+              <option value="">—</option>
+              <option>SVM</option><option>SM</option><option>EM</option><option>WM</option>
+              <option>U23</option><option>U20</option>
+            </select>
+          </div>
+          <div><label for="wkRunde">Runde</label>
+            <select id="wkRunde">
+              <option value="">—</option>
+              <option>Vorlauf</option><option>Halbfinal</option><option>Final</option>
+              <option>Trainingswettkampf</option>
+            </select>
+          </div>
+          <div><label for="wkLauf">Lauf (optional)</label><input type="number" id="wkLauf" min="1" step="1" placeholder="z. B. 2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RECHTS: Läufer ============ -->
+  <div>
+    <div class="card">
+      <div class="hd"><h2>Läufer</h2><span class="spacer"></span><button id="addAthlete" class="ghost sm">+ Läufer</button></div>
+      <div class="bd">
+        <div id="athletes"></div>
+        <p class="hint" id="noAth">Noch keine Läufer. Name, Bahn und Rang erfassen, dann Hürde für Hürde markieren und die Schritte eintragen.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><h2>Tastatur</h2></div>
+      <div class="bd"><div class="keys">
+        <div><span class="kbd">Leer</span> Play / Pause</div>
+        <div><span class="kbd">←</span> <span class="kbd">→</span> ± 1 Frame</div>
+        <div><span class="kbd">⇧←</span> <span class="kbd">⇧→</span> ± 10 Frames</div>
+        <div><span class="kbd">1</span>…<span class="kbd">9</span> Läufer nach Bahn</div>
+        <div><span class="kbd">Enter</span> Touchdown setzen</div>
+        <div><span class="kbd">X</span> Hürde nicht sichtbar</div>
+        <div><span class="kbd">⌫</span> Feld leeren</div>
+        <div><span class="kbd">S</span> Startframe setzen</div>
+        <div><span class="kbd">N</span> nächstes Feld</div>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><h2>Strecken</h2></div>
+      <div class="bd">
+        <div class="row">
+          <div><label for="dStart">Start → H1 (m)</label><input type="number" id="dStart" value="45" step="0.1" style="width:80px"></div>
+          <div><label for="dGap">Hürdenabstand (m)</label><input type="number" id="dGap" value="35" step="0.1" style="width:80px"></div>
+          <div><label for="dFin">H10 → Ziel (m)</label><input type="number" id="dFin" value="40" step="0.1" style="width:80px"></div>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Nur zur Kontrolle beim Erfassen — im Master werden ausschliesslich Touchdown-Zeiten gespeichert.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ABSCHICKEN ============ -->
+<div class="card">
+  <div class="hd"><h2>Abschicken</h2><span class="spacer"></span><span class="hint" id="rennenInfo">0 Läufer bereit</span></div>
+  <div class="bd">
+    <div id="preview" class="hint">Noch keine vollständigen Rennen zum Abschicken.</div>
+    <div class="sendbar" style="margin-top:12px">
+      <button id="sendGithub" class="primary" disabled>An GitHub senden</button>
+      <button id="downloadJson" class="ghost">Als JSON herunterladen</button>
+      <span class="status" id="sendStatus"></span>
+    </div>
+    <div class="log" id="sendLog" style="display:none"></div>
+  </div>
+</div>
+</div>
+
+<footer>Touchdown — läuft offline im Browser, ausser beim Abschicken an GitHub. Eine einzelne HTML-Datei, beliebig hostbar.</footer>
+
+<!-- ============ Einstellungen ============ -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>GitHub-Verbindung</h2>
+    <p class="hint" style="margin-bottom:14px">
+      Wird lokal in diesem Browser gespeichert (localStorage), nie im Quelltext.
+      Ohne Token funktioniert nur der JSON-Download.
+    </p>
+    <div class="row2">
+      <div><label for="ghToken">Personal Access Token (fine-grained, nur dieses Repo, Contents read/write)</label>
+        <input type="password" id="ghToken" placeholder="github_pat_…"></div>
+      <div><label for="ghRepo">Repo (owner/name)</label>
+        <input type="text" id="ghRepo" placeholder="larstwi/Hurdle_Analysis"></div>
+      <div><label for="ghBranch">Branch</label>
+        <input type="text" id="ghBranch" placeholder="main"></div>
+      <div><label for="ghPath">Pfad zur Master-Datei</label>
+        <input type="text" id="ghPath" placeholder="data/master.csv"></div>
+    </div>
+    <div class="foot">
+      <button class="ghost sm" id="settingsClear">Token löschen</button>
+      <span class="spacer"></span>
+      <button class="ghost sm" id="settingsCancel">Abbrechen</button>
+      <button class="primary sm" id="settingsSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ======================================================================
+   Schema — muss exakt zu skripte/master_io.py SCHEMA passen
+   ====================================================================== */
+const SCHEMA = ['race_id','datum','athlet','ort','serie','runde','lauf',
+  'bahn','rang','zeit','status','fps','quelle','erfasst_am','video','notiz',
+  'roh_wettkampf','h1','h2','h3','h4','h5','h6','h7','h8','h9','h10',
+  's_start','s1_2','s2_3','s3_4','s4_5','s5_6','s6_7','s7_8','s8_9','s9_10'];
+const NH = 10, SLOTS = NH + 1, SKIP = 'skip';
+
+/* ======================================================================
+   slug() / race_id() — muss Zeichen fuer Zeichen zu Python passen
+   (skripte/master_io.py bzw. daten.py slug()). Getestet gegen Python-
+   Referenzwerte inkl. Sonderfall "ß" -> wird NICHT zu "ss", sondern faellt
+   als eigenes Zeichen weg (Python unicodedata.normalize('NFKD') zerlegt
+   'ß' nicht in Kombinationszeichen).
+   ====================================================================== */
+function slug(s){
+  return String(s==null?'':s).normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+function raceId(athlet, datum, ort, runde, lauf){
+  const teile = [slug(athlet), datum||'', slug(ort), slug(runde||''), String(lauf||'')];
+  return teile.join('-').replace(/^-+|-+$/g,'');
+}
+
+/* ======================================================================
+   Zustand
+   ====================================================================== */
+let athletes = [];         // {id,lane,name,bahn,rang,status,finish,marks[11],schritte[10]}
+let selId = null, targetSlot = 0;
+let startFrame = null, fps = null, vidReady = false;
+let masterZeilen = null;   // vom GitHub geladene Master-Zeilen, fuer Duplikat-Erkennung
+let masterSha = null;
+const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+
+const video = $('video');
+const fmt = (v,d=3) => (v==null||!isFinite(v)) ? '—' : v.toFixed(d).replace('.',',');
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function status(id,msg,cls){ const e=$(id); e.textContent=msg; e.className='status'+(cls?' '+cls:''); }
+
+const frameToTime = f => (f+0.5)/(fps||50);
+const timeToFrame = t => Math.max(0, Math.round(t*(fps||50)-0.5));
+const curFrame = () => timeToFrame(video.currentTime);
+
+/* ======================================================================
+   Video laden, Transport, Bildratenmessung, Startframe
+   ====================================================================== */
+$('dropzone').addEventListener('click',()=>$('fileInput').click());
+$('dropzone').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('fileInput').click();}});
+$('fileInput').addEventListener('change',e=>{if(e.target.files[0])loadVideo(e.target.files[0])});
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('hot')}));
+['dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.remove('hot')}));
+document.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video'))loadVideo(f)});
+
+function loadVideo(file){
+  video.src = URL.createObjectURL(file);
+  $('fileName').textContent = file.name;
+  video.addEventListener('loadedmetadata', async () => {
+    vidReady = true;
+    $('dropzone').style.display = 'none';
+    $('player').style.display = 'block';
+    await measureFps();
+    await goToFrame(0);
+  }, { once:true });
+}
+
+function seek(t){
+  return new Promise(res=>{
+    let done=false;
+    const on=()=>{if(done)return;done=true;video.removeEventListener('seeked',on);res()};
+    video.addEventListener('seeked',on);
+    video.currentTime = Math.max(0, Math.min(t,(video.duration||0)-1e-4));
+    setTimeout(on,900);
+  });
+}
+async function goToFrame(f){ await seek(frameToTime(Math.max(0,f))); paint(); }
+function step(n){ if(!vidReady)return; video.pause(); goToFrame(curFrame()+n); }
+
+async function measureFps(){
+  if(!hasRVFC){
+    fps = parseFloat($('fps').value)||50;
+    $('fpsPill').textContent = fps+' fps (manuell)'; $('fpsPill').className='pill warn';
+    $('fpsManual').style.display='flex'; $('fpsToggle').style.display='none';
+    status('fpsStatus','Dieser Browser liefert keine Frame-Zeitstempel. Bildrate bitte manuell eintragen — in Chrome, Edge oder Safari misst das Tool automatisch.','warn');
+    return;
+  }
+  status('fpsStatus','Messe Bildrate…');
+  const wasMuted = video.muted; video.muted = true; video.playbackRate = 1;
+  const times = [];
+  try{
+    await seek(Math.min(1,(video.duration||4)/4));
+    await video.play();
+    await new Promise(res=>{
+      const cb=(now,md)=>{ times.push(md.mediaTime);
+        (times.length<140 && !video.ended) ? video.requestVideoFrameCallback(cb) : res(); };
+      video.requestVideoFrameCallback(cb);
+      setTimeout(res,6000);
+    });
+  }catch(e){}
+  video.pause(); video.muted = wasMuted;
+
+  const d=[]; for(let i=1;i<times.length;i++){const x=times[i]-times[i-1]; if(x>1e-4)d.push(x)}
+  if(d.length<12){
+    fps = parseFloat($('fps').value)||50;
+    $('fpsPill').textContent = fps+' fps (ungeprüft)'; $('fpsPill').className='pill warn';
+    $('fpsManual').style.display='flex';
+    status('fpsStatus','Messung fehlgeschlagen — zu wenige Frames angekommen. Bitte Bildrate prüfen.','warn');
+    return;
+  }
+  d.sort((a,b)=>a-b);
+  const raw = 1/d[Math.floor(d.length/2)];
+  const cands = [23.976,24,25,29.97,30,48,50,59.94,60,90,100,119.88,120,200,240];
+  const near = cands.find(c=>Math.abs(c-raw)/c<0.02);
+  fps = near || Math.round(raw*1000)/1000;
+  $('fps').value = fps;
+  $('fpsPill').textContent = fps+' fps'; $('fpsPill').className='pill on';
+  status('fpsStatus','Bildrate automatisch erkannt: '+String(fps).replace('.',',')+' fps'+(near?'':' (gemessen, kein Standardwert)'),'good');
+}
+$('fpsToggle').addEventListener('click',()=>{
+  const m=$('fpsManual'); const open=m.style.display!=='none';
+  m.style.display = open?'none':'flex';
+  $('fpsToggle').textContent = open?'Bildrate korrigieren':'Feld schliessen';
+});
+$('remeasure').addEventListener('click',measureFps);
+$('fps').addEventListener('change',()=>{
+  fps = parseFloat($('fps').value)||50;
+  $('fpsPill').textContent = fps+' fps (manuell)'; $('fpsPill').className='pill warn';
+});
+
+$('bplay').addEventListener('click',togglePlay);
+$('b1back').addEventListener('click',()=>step(-1));
+$('b1fwd').addEventListener('click',()=>step(1));
+$('b10back').addEventListener('click',()=>step(-10));
+$('b10fwd').addEventListener('click',()=>step(10));
+$('rate').addEventListener('change',e=>video.playbackRate=parseFloat(e.target.value));
+$('setStart').addEventListener('click',()=>setStart(curFrame()));
+function togglePlay(){ if(!vidReady)return; video.paused?video.play():video.pause(); }
+video.addEventListener('play',()=>{$('bplay').textContent='❚❚ Pause';tick()});
+video.addEventListener('pause',()=>{$('bplay').textContent='▶︎ Play';paint()});
+function tick(){ if(video.paused)return; paint(); requestAnimationFrame(tick); }
+$('scrub').addEventListener('input',e=>{
+  if(!vidReady)return; video.pause();
+  goToFrame(timeToFrame(video.duration*e.target.value/1000));
+});
+function paint(){
+  $('tc').firstChild.nodeValue = fmt(video.currentTime,3)+' s ';
+  $('fnum').textContent = 'F '+curFrame();
+  if(video.duration) $('scrub').value = Math.round(video.currentTime/video.duration*1000);
+}
+function setStart(f){
+  startFrame = f;
+  $('startInfo').textContent = 'Start bei Frame '+f+' · '+fmt(frameToTime(f))+' s';
+  renderPreview();
+}
+
+/* ======================================================================
+   Läufer
+   ====================================================================== */
+function newAthlete(){
+  const used = athletes.map(a=>a.lane); let lane=1; while(used.includes(lane)&&lane<9)lane++;
+  return {
+    id: Math.random().toString(36).slice(2,9), lane, name:'', bahn:'', rang:'',
+    statusFeld:'OK', finish:'',
+    marks: new Array(SLOTS).fill(null),
+    schritte: new Array(NH).fill(''),
+  };
+}
+$('addAthlete').addEventListener('click',()=>{
+  const a = newAthlete(); athletes.push(a); selId = a.id; targetSlot = 0;
+  renderAthletes(); renderPreview();
+});
+
+function renderAthletes(){
+  const box = $('athletes'); box.innerHTML = '';
+  $('noAth').style.display = athletes.length ? 'none' : 'block';
+  athletes.sort((a,b)=>a.lane-b.lane);
+
+  for(const a of athletes){
+    const el = document.createElement('div');
+    el.className = 'athlete' + (a.id===selId?' active':'');
+
+    const hd = document.createElement('div'); hd.className = 'ahd';
+    const ln = document.createElement('select');
+    for(let i=1;i<=9;i++){const o=document.createElement('option');o.value=i;o.textContent='Bahn '+i;if(i===a.lane)o.selected=true;ln.appendChild(o)}
+    ln.addEventListener('change',()=>{a.lane=+ln.value;renderAthletes();renderPreview()});
+    hd.appendChild(ln);
+    const nm = document.createElement('input'); nm.type='text'; nm.placeholder='Name'; nm.value=a.name;
+    nm.addEventListener('input',()=>{a.name=nm.value;renderPreview()});
+    nm.addEventListener('focus',()=>{selId=a.id;renderAthletes()});
+    hd.appendChild(nm);
+    const del = document.createElement('button'); del.className='ghost sm'; del.textContent='✕'; del.title='Läufer entfernen';
+    del.addEventListener('click',()=>{athletes=athletes.filter(x=>x.id!==a.id);if(selId===a.id)selId=null;renderAthletes();renderPreview()});
+    hd.appendChild(del);
+    el.appendChild(hd);
+
+    const r2 = document.createElement('div'); r2.className = 'arow';
+    r2.appendChild(feld('Bahn', a.bahn, v=>{a.bahn=v;renderPreview()}, 'number'));
+    r2.appendChild(feld('Rang', a.rang, v=>{a.rang=v;renderPreview()}, 'number'));
+    const statusWrap = document.createElement('div');
+    statusWrap.innerHTML = '<label>Status</label>';
+    const sel = document.createElement('select');
+    ['OK','DNF','DNS','DSQ'].forEach(s=>{const o=document.createElement('option');o.textContent=s;if(s===a.statusFeld)o.selected=true;sel.appendChild(o)});
+    sel.addEventListener('change',()=>{a.statusFeld=sel.value;renderPreview()});
+    statusWrap.appendChild(sel); r2.appendChild(statusWrap);
+    const ft = feld('Zielzeit (s)', a.finish, v=>{a.finish=v;renderPreview()}, 'text', 'wide');
+    ft.querySelector('input').placeholder = 'z. B. 51,66';
+    r2.appendChild(ft);
+    el.appendChild(r2);
+
+    const sl = document.createElement('div'); sl.className = 'slots';
+    for(let i=0;i<SLOTS;i++){
+      const m = a.marks[i];
+      const b = document.createElement('div');
+      b.className = 'slot'+(typeof m==='number'?' set':'')+(m===SKIP?' skip':'')+((a.id===selId&&i===targetSlot)?' target':'');
+      b.textContent = i<NH ? ('H'+(i+1)) : 'ZIEL';
+      b.title = typeof m==='number' ? ('Frame '+m) : (m===SKIP?'nicht sichtbar':'offen');
+      b.addEventListener('click',()=>{selId=a.id;targetSlot=i;renderAthletes()});
+      sl.appendChild(b);
+    }
+    el.appendChild(sl);
+
+    if(a.id===selId){
+      const bar = document.createElement('div'); bar.className='slotbar';
+      const lb = document.createElement('span'); lb.className='lbl';
+      lb.textContent = (targetSlot<NH?'H'+(targetSlot+1):'Ziel')+' :';
+      bar.appendChild(lb);
+      const mk = document.createElement('button'); mk.className='primary sm'; mk.textContent='Touchdown setzen';
+      mk.addEventListener('click',mark); bar.appendChild(mk);
+      const sk = document.createElement('button'); sk.className='ghost sm';
+      sk.textContent = a.marks[targetSlot]===SKIP ? 'nicht sichtbar ✓' : 'nicht sichtbar';
+      sk.addEventListener('click',toggleSkip); bar.appendChild(sk);
+      const cl = document.createElement('button'); cl.className='ghost sm'; cl.textContent='leeren';
+      cl.addEventListener('click',unmark); bar.appendChild(cl);
+      el.appendChild(bar);
+    }
+
+    const sc = document.createElement('div'); sc.className='schritte';
+    const scLabels = ['bis H1','1–2','2–3','3–4','4–5','5–6','6–7','7–8','8–9','9–10'];
+    a.schritte.forEach((v,i)=>{
+      const wrap=document.createElement('div'); wrap.className='sc';
+      const lab=document.createElement('span'); lab.textContent=scLabels[i]; wrap.appendChild(lab);
+      const inp=document.createElement('input'); inp.type='number'; inp.min='1'; inp.step='1'; inp.value=v;
+      inp.addEventListener('input',()=>{a.schritte[i]=inp.value;renderPreview()});
+      wrap.appendChild(inp);
+      sc.appendChild(wrap);
+    });
+    el.appendChild(sc);
+
+    box.appendChild(el);
+  }
+}
+function feld(label, val, onInput, type='text', extraClass=''){
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<label>${label}</label>`;
+  const inp = document.createElement('input'); inp.type=type; inp.value=val; if(extraClass)inp.className=extraClass;
+  inp.addEventListener('input',()=>onInput(inp.value));
+  wrap.appendChild(inp);
+  return wrap;
+}
+
+const sel = () => athletes.find(x=>x.id===selId);
+function nextOpen(a,from){ for(let i=from;i<SLOTS;i++) if(a.marks[i]==null) return i; return Math.min(from,SLOTS-1); }
+function mark(){ const a=sel(); if(!a||!vidReady||fps==null)return;
+  a.marks[targetSlot]=curFrame(); targetSlot=nextOpen(a,targetSlot+1); renderAthletes(); renderPreview(); }
+function toggleSkip(){ const a=sel(); if(!a)return;
+  a.marks[targetSlot] = a.marks[targetSlot]===SKIP ? null : SKIP;
+  if(a.marks[targetSlot]===SKIP) targetSlot=nextOpen(a,targetSlot+1);
+  renderAthletes(); renderPreview(); }
+function unmark(){ const a=sel(); if(!a)return; a.marks[targetSlot]=null; renderAthletes(); renderPreview(); }
+
+document.addEventListener('keydown',e=>{
+  const t=e.target.tagName;
+  if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA'){ if(e.key==='Enter')e.target.blur(); return; }
+  const k=e.key;
+  if(k===' '){e.preventDefault();togglePlay()}
+  else if(k==='ArrowLeft'){e.preventDefault();step(e.shiftKey?-10:-1)}
+  else if(k==='ArrowRight'){e.preventDefault();step(e.shiftKey?10:1)}
+  else if(k==='Enter'){e.preventDefault();mark()}
+  else if(k==='x'||k==='X'){e.preventDefault();toggleSkip()}
+  else if(k==='Backspace'||k==='Delete'){e.preventDefault();unmark()}
+  else if(k==='s'||k==='S'){e.preventDefault();if(vidReady)setStart(curFrame())}
+  else if(k==='n'||k==='N'){e.preventDefault();targetSlot=(targetSlot+1)%SLOTS;renderAthletes()}
+  else if(/^[1-9]$/.test(k)){
+    const a=athletes.find(x=>x.lane===+k);
+    if(a){selId=a.id;targetSlot=nextOpen(a,0);renderAthletes()}
+  }
+});
+
+['wkDatum','wkOrt','wkSerie','wkRunde','wkLauf'].forEach(id=>$(id).addEventListener('input',renderPreview));
+
+/* ======================================================================
+   Rennen aus dem aktuellen Zustand bauen
+   ====================================================================== */
+function parseKomma(s){
+  if(s==null || s==='') return null;
+  const v = parseFloat(String(s).replace(',','.').trim());
+  return isFinite(v) ? v : null;
+}
+function rundeStr(v){
+  if(v==null) return '';
+  const r = Math.round(v*1000)/1000;
+  return String(r);
+}
+
+function baueRennen(a, wk){
+  const t0 = startFrame!=null ? frameToTime(startFrame) : null;
+  const zeitManuell = parseKomma(a.finish);
+  let zeit = zeitManuell;
+  if(zeit==null && t0!=null && typeof a.marks[NH]==='number'){
+    zeit = frameToTime(a.marks[NH]) - t0;
+  }
+  const h = [];
+  for(let i=0;i<NH;i++){
+    const m = a.marks[i];
+    h.push((typeof m==='number' && t0!=null) ? (frameToTime(m)-t0) : null);
+  }
+  const rid = raceId(a.name, wk.datum, wk.ort, wk.runde, wk.lauf);
+  const nun = new Date().toISOString();
+  const zeile = {
+    race_id: rid, datum: wk.datum||'', athlet: a.name||'', ort: wk.ort||'',
+    serie: wk.serie||'', runde: wk.runde||'', lauf: wk.lauf||'',
+    bahn: a.bahn||'', rang: a.rang||'',
+    zeit: (a.statusFeld==='OK' && zeit!=null) ? rundeStr(zeit) : '',
+    status: a.statusFeld||'OK',
+    fps: fps ? rundeStr(fps) : '', quelle: 'tool', erfasst_am: nun,
+    video: '', notiz: '', roh_wettkampf: '',
+  };
+  for(let i=0;i<NH;i++) zeile['h'+(i+1)] = h[i]!=null ? rundeStr(h[i]) : '';
+  const sNamen = ['s_start','s1_2','s2_3','s3_4','s4_5','s5_6','s6_7','s7_8','s8_9','s9_10'];
+  sNamen.forEach((n,i)=>{ const v=parseKomma(a.schritte[i]); zeile[n] = v!=null?String(Math.round(v)):''; });
+  return zeile;
+}
+
+function aktuelleWettkampfdaten(){
+  return {
+    datum: $('wkDatum').value, ort: $('wkOrt').value.trim(),
+    serie: $('wkSerie').value, runde: $('wkRunde').value, lauf: $('wkLauf').value,
+  };
+}
+
+function gueltigeRennen(){
+  const wk = aktuelleWettkampfdaten();
+  if(!wk.datum || !wk.ort) return [];
+  return athletes.filter(a=>a.name && a.name.trim()).map(a=>baueRennen(a, wk));
+}
+
+/* ======================================================================
+   Vorschau
+   ====================================================================== */
+function renderPreview(){
+  const rennen = gueltigeRennen();
+  $('rennenInfo').textContent = rennen.length + ' Läufer bereit';
+  const box = $('preview');
+  const wk = aktuelleWettkampfdaten();
+
+  if(!wk.datum || !wk.ort){
+    box.innerHTML = '<p class="hint">Datum und Ort im Wettkampf-Feld ausfüllen, dann erscheinen hier die Rennen.</p>';
+    $('sendGithub').disabled = true;
+    return;
+  }
+  if(!rennen.length){
+    box.innerHTML = '<p class="hint">Noch keine Läufer mit Namen erfasst.</p>';
+    $('sendGithub').disabled = true;
+    return;
+  }
+
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    + '<thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase">'
+    + '<th style="padding:4px 8px 4px 0">Läufer</th><th>Zeit</th><th>H1</th><th>H10</th><th>Status</th></tr></thead><tbody>';
+  for(const r of rennen){
+    let bekannt = '<span class="hint">neu</span>';
+    if(masterZeilen){
+      const alt = masterZeilen.find(z=>z.race_id===r.race_id);
+      if(alt) bekannt = '<span style="color:var(--signal)">ersetzt bestehendes Rennen (Zeit bisher '+(alt.zeit||'—')+')</span>';
+    }
+    h += `<tr style="border-top:1px solid var(--line)">
+      <td style="padding:5px 8px 5px 0">${esc(r.athlet)}</td>
+      <td class="mono">${r.zeit||'—'}</td>
+      <td class="mono">${r.h1||'—'}</td>
+      <td class="mono">${r.h10||'—'}</td>
+      <td>${bekannt}</td></tr>`;
+  }
+  h += '</tbody></table>';
+  if(!masterZeilen){
+    h += '<p class="hint" style="margin-top:8px">Master noch nicht geladen — Duplikate werden erst nach dem Laden erkannt (passiert automatisch beim Senden).</p>';
+  }
+  box.innerHTML = h;
+  $('sendGithub').disabled = !ghConfig().token;
+}
+
+/* ======================================================================
+   CSV — Parser und Serialisierung, kompatibel zu pandas.to_csv
+   ====================================================================== */
+function parseCsv(text){
+  const zeilen = [];
+  let feld = '', zeile = [], inQuotes = false;
+  const pushFeld = () => { zeile.push(feld); feld=''; };
+  const pushZeile = () => { pushFeld(); zeilen.push(zeile); zeile=[]; };
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){feld+='"';i++;} else inQuotes=false; }
+      else feld += c;
+    } else {
+      if(c==='"') inQuotes = true;
+      else if(c===','){ pushFeld(); }
+      else if(c==='\n'){ pushZeile(); }
+      else if(c==='\r'){ /* ignorieren, \n folgt */ }
+      else feld += c;
+    }
+  }
+  if(feld.length || zeile.length) pushZeile();
+  if(!zeilen.length) return [];
+  const kopf = zeilen[0];
+  return zeilen.slice(1).filter(z=>z.length>1||z[0]!=='').map(z=>{
+    const o = {}; kopf.forEach((k,i)=>o[k]=z[i]??''); return o;
+  });
+}
+function csvFeld(v){
+  const s = v==null ? '' : String(v);
+  return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function serialisiereCsv(zeilen){
+  const kopf = SCHEMA.join(',');
+  const rows = zeilen.map(z=>SCHEMA.map(k=>csvFeld(z[k])).join(','));
+  return [kopf, ...rows].join('\n') + '\n';
+}
+
+/* ======================================================================
+   UTF-8-sicheres Base64 (fuer die GitHub Contents API)
+   ====================================================================== */
+function utf8ToBase64(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function base64ToUtf8(b64){
+  const bin = atob(b64.replace(/\n/g,''));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+/* ======================================================================
+   GitHub-Einstellungen
+   ====================================================================== */
+function ghConfig(){
+  return {
+    token: localStorage.getItem('touchdown_gh_token') || '',
+    repo: localStorage.getItem('touchdown_gh_repo') || '',
+    branch: localStorage.getItem('touchdown_gh_branch') || 'main',
+    path: localStorage.getItem('touchdown_gh_path') || 'data/master.csv',
+  };
+}
+function updateGithubPill(){
+  const c = ghConfig();
+  const p = $('githubPill');
+  if(c.token && c.repo){ p.textContent = 'GitHub verbunden'; p.className='pill on'; }
+  else { p.textContent = 'GitHub nicht verbunden'; p.className='pill off'; }
+}
+$('openSettings').addEventListener('click',()=>{
+  const c = ghConfig();
+  $('ghToken').value = c.token; $('ghRepo').value = c.repo;
+  $('ghBranch').value = c.branch; $('ghPath').value = c.path;
+  $('settingsOverlay').classList.add('open');
+});
+$('settingsCancel').addEventListener('click',()=>$('settingsOverlay').classList.remove('open'));
+$('settingsOverlay').addEventListener('click',e=>{if(e.target.id==='settingsOverlay')$('settingsOverlay').classList.remove('open')});
+$('settingsSave').addEventListener('click',()=>{
+  localStorage.setItem('touchdown_gh_token', $('ghToken').value.trim());
+  localStorage.setItem('touchdown_gh_repo', $('ghRepo').value.trim());
+  localStorage.setItem('touchdown_gh_branch', $('ghBranch').value.trim()||'main');
+  localStorage.setItem('touchdown_gh_path', $('ghPath').value.trim()||'data/master.csv');
+  updateGithubPill(); renderPreview();
+  $('settingsOverlay').classList.remove('open');
+});
+$('settingsClear').addEventListener('click',()=>{
+  ['touchdown_gh_token','touchdown_gh_repo','touchdown_gh_branch','touchdown_gh_path'].forEach(k=>localStorage.removeItem(k));
+  $('ghToken').value=''; $('ghRepo').value=''; $('ghBranch').value=''; $('ghPath').value='';
+  updateGithubPill(); renderPreview();
+});
+
+/* ======================================================================
+   GitHub — Master laden, zusammenfuehren, committen
+   ====================================================================== */
+function logLine(msg, cls){
+  const el = $('sendLog'); el.style.display='block';
+  const line = document.createElement('div'); if(cls)line.className=cls; line.textContent=msg;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+async function apiHeaders(token){
+  return {
+    'Authorization': 'Bearer '+token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+}
+async function ladeMasterVonGithub(){
+  const c = ghConfig();
+  if(!c.repo) throw new Error('Kein Repo in den Einstellungen hinterlegt.');
+  const url = `https://api.github.com/repos/${c.repo}/contents/${encodeURIComponent(c.path).replace(/%2F/g,'/')}?ref=${encodeURIComponent(c.branch)}`;
+  const headers = c.token ? await apiHeaders(c.token) : {'Accept':'application/vnd.github+json'};
+  const res = await fetch(url, {headers});
+  if(!res.ok){
+    const body = await res.text().catch(()=> '');
+    throw new Error(`Master konnte nicht geladen werden (${res.status}). ${body.slice(0,200)}`);
+  }
+  const data = await res.json();
+  const text = base64ToUtf8(data.content);
+  masterSha = data.sha;
+  masterZeilen = parseCsv(text);
+  return masterZeilen;
+}
+function upsert(zeilen, neueRennen){
+  const byId = new Map(zeilen.map(z=>[z.race_id,z]));
+  const neu = [], ersetzt = [];
+  for(const r of neueRennen){
+    if(byId.has(r.race_id)) ersetzt.push(r.race_id); else neu.push(r.race_id);
+    byId.set(r.race_id, r);
+  }
+  return { zeilen: Array.from(byId.values()), neu, ersetzt };
+}
+async function commitMaster(csvText, message, versuch=1){
+  const c = ghConfig();
+  const url = `https://api.github.com/repos/${c.repo}/contents/${encodeURIComponent(c.path).replace(/%2F/g,'/')}`;
+  const headers = await apiHeaders(c.token);
+  headers['Content-Type'] = 'application/json';
+  const body = { message, content: utf8ToBase64(csvText), sha: masterSha, branch: c.branch };
+  const res = await fetch(url, {method:'PUT', headers, body: JSON.stringify(body)});
+  if(res.status===409 && versuch<3){
+    logLine('Master wurde zwischenzeitlich geändert — lade neu und versuche erneut …','warn');
+    await ladeMasterVonGithub();
+    const rennen = gueltigeRennen();
+    const {zeilen} = upsert(masterZeilen, rennen);
+    return commitMaster(serialisiereCsv(zeilen), message, versuch+1);
+  }
+  if(!res.ok){
+    const err = await res.json().catch(()=>({message:res.statusText}));
+    throw new Error(`Commit fehlgeschlagen (${res.status}): ${err.message||''}`);
+  }
+  return res.json();
+}
+
+$('sendGithub').addEventListener('click', async () => {
+  const c = ghConfig();
+  const rennen = gueltigeRennen();
+  if(!c.token || !c.repo){ status('sendStatus','Bitte zuerst GitHub-Einstellungen ausfüllen.','warn'); return; }
+  if(!rennen.length){ status('sendStatus','Keine gültigen Rennen zum Senden.','warn'); return; }
+
+  $('sendGithub').disabled = true;
+  $('sendLog').innerHTML = ''; $('sendLog').style.display='block';
+  try{
+    status('sendStatus','Lade aktuellen Master …');
+    logLine('Verbinde mit '+c.repo+' ('+c.branch+') …');
+    await ladeMasterVonGithub();
+    logLine('Master geladen: '+masterZeilen.length+' bestehende Rennen.','ok');
+
+    const {zeilen, neu, ersetzt} = upsert(masterZeilen, rennen);
+    logLine(neu.length+' neu, '+ersetzt.length+' ersetzt.');
+
+    const namen = rennen.map(r=>r.athlet).join(', ');
+    const wk = aktuelleWettkampfdaten();
+    const message = `Rennen erfasst: ${namen} — ${wk.ort} ${wk.datum}`;
+
+    status('sendStatus','Committe nach GitHub …');
+    const csvText = serialisiereCsv(zeilen);
+    const ergebnis = await commitMaster(csvText, message);
+    logLine('Commit erfolgreich: '+(ergebnis.commit&&ergebnis.commit.sha||'').slice(0,7),'ok');
+    status('sendStatus','Gesendet — der Master ist aktualisiert.','good');
+    masterZeilen = zeilen;
+    renderPreview();
+  }catch(err){
+    logLine('Fehler: '+err.message,'bad');
+    status('sendStatus','Fehlgeschlagen — Details im Protokoll unten.','bad');
+  }finally{
+    $('sendGithub').disabled = !ghConfig().token;
+  }
+});
+
+$('downloadJson').addEventListener('click',()=>{
+  const rennen = gueltigeRennen();
+  if(!rennen.length){ status('sendStatus','Keine gültigen Rennen zum Exportieren.','warn'); return; }
+  const wk = aktuelleWettkampfdaten();
+  const blob = new Blob([JSON.stringify({wettkampf:wk, rennen}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `rennen_${wk.datum||'ohne-datum'}_${slug(wk.ort||'ort')}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  status('sendStatus','JSON heruntergeladen.','good');
+});
+
+['dStart','dGap','dFin'].forEach(id=>{ if($(id)) $(id).addEventListener('input',()=>{}); });
+
+/* ======================================================================
+   Start
+   ====================================================================== */
+updateGithubPill();
+renderAthletes();
+renderPreview();
+</script>
+</body>
+</html>
