@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'skripte'))
 
 from master_io import load_master                                  # noqa: E402
 from auswertung import select_season, segmente, label, abschnittsbezeichnung  # noqa: E402
-from export_utils import xlsx_bytes, pdf_bytes                      # noqa: E402
+from export_utils import xlsx_bytes, pdf_bytes, pdf_bytes_auswahl        # noqa: E402
 from pdf_export import grafik_rueckstand, grafik_ermuedung          # noqa: E402
 
 DATA_FILE = Path(__file__).parent / 'data' / 'master.csv'
@@ -41,6 +41,11 @@ def get_xlsx(athlet, saison, _stand):
 @st.cache_data(ttl=60, show_spinner='PDF wird erstellt …')
 def get_pdf(athlet, saison, _stand):
     return pdf_bytes(get_master(), athlet, saison)
+
+
+@st.cache_data(ttl=60, show_spinner='PDF wird erstellt …')
+def get_pdf_auswahl(race_ids, titel, _stand):
+    return pdf_bytes_auswahl(get_master(), list(race_ids), titel)
 
 
 def datenstand(master):
@@ -132,7 +137,8 @@ def tab_athlet(master):
 
 
 def tab_vergleich(master):
-    st.caption('Beliebige Rennen gegeneinander – auch über Athleten und Jahre hinweg.')
+    st.caption('Beliebige Rennen gegeneinander – auch über Athleten und Jahre hinweg. '
+              'Zum Beispiel Lauf A, B und C zusammenstellen und als PDF mitnehmen.')
 
     m = master.dropna(subset=['datum']).copy()
     m['_label'] = m.apply(lambda r: f"{r['athlet']} — {label(r)} ({r['zeit']:.2f} s)"
@@ -140,7 +146,7 @@ def tab_vergleich(master):
                           axis=1)
     optionen = dict(zip(m['_label'], m['race_id']))
 
-    gewaehlt = st.multiselect('Rennen wählen (2–6)', list(optionen.keys()), max_selections=6)
+    gewaehlt = st.multiselect('Rennen wählen (2–10)', list(optionen.keys()), max_selections=10)
     if len(gewaehlt) < 2:
         st.info('Mindestens zwei Rennen auswählen.')
         return
@@ -168,6 +174,15 @@ def tab_vergleich(master):
 
     st.subheader('Rennen im Vergleich')
     rennen_tabelle(auswahl, None)
+
+    st.subheader('Export')
+    titel = st.text_input('Titel für das PDF', value='Rennvergleich')
+    stand = datenstand(master)
+    st.download_button(
+        '⬇ Auswahl als PDF herunterladen',
+        get_pdf_auswahl(tuple(ids), titel, stand),
+        file_name=f'{titel.strip().replace(" ", "_") or "Rennvergleich"}.pdf',
+        mime='application/pdf', width='stretch')
 
 
 def tab_alle_daten(master):

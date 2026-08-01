@@ -67,17 +67,23 @@ def h200_h400_diff(row):
     return round(m200, 2), round(m400, 2), round(m400 - m200, 2)
 
 
-def rennzeilen(row):
-    """Zwei Tabellenzeilen (Zeit, Schritte) fuer ein Rennen."""
+def rennzeilen(row, mit_athlet=False):
+    """Zwei Tabellenzeilen (Zeit, Schritte) fuer ein Rennen.
+
+    mit_athlet=True stellt den Namen voran - noetig, wenn eine Tabelle
+    Rennen verschiedener Athlet:innen nebeneinander zeigt.
+    """
     seg, schritte = segmente(row)
     m200, m400, diff = h200_h400_diff(row)
-    kopf = [str(pd.to_datetime(row['datum']).strftime('%d.%m.%Y')) if pd.notna(row['datum']) else '',
+    kopf = [row.get('athlet') or ''] if mit_athlet else []
+    kopf += [str(pd.to_datetime(row['datum']).strftime('%d.%m.%Y')) if pd.notna(row['datum']) else '',
             row.get('ort') or '', kurz(row),
             fmt(row.get('bahn'), 0), fmt(row.get('rang'), 0)]
     zeile1 = kopf + [zeitzeile(row), fmt(m200), fmt(m400),
                      ('+' if diff and diff > 0 else '') + fmt(diff) if diff is not None else ''] \
              + [fmt(v) for v in seg]
-    zeile2 = [''] * 5 + [''] * 4 + [fmt(v, 0) if v is not None else '' for v in schritte]
+    leer = [''] * (6 if mit_athlet else 5)
+    zeile2 = leer + [''] * 4 + [fmt(v, 0) if v is not None else '' for v in schritte]
     return zeile1, zeile2
 
 
@@ -197,6 +203,98 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
     reihenfolge = pd.concat([lauf, vgl]) if not vgl.empty else lauf
     bild1 = grafik_rueckstand(lauf, auswahl['ref'])
     bild2 = grafik_ermuedung(reihenfolge)
+    if bild1:
+        story.append(KeepTogether([Image(bild1, width=doc.width * 0.62,
+                                         height=doc.width * 0.62 * 0.42)]))
+        story.append(Spacer(1, 6))
+    if bild2:
+        story.append(KeepTogether([Image(bild2, width=doc.width * 0.62,
+                                         height=doc.width * 0.62 * 0.42)]))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def baue_pdf_auswahl(master, race_ids, titel='Rennvergleich'):
+    """PDF fuer eine frei zusammengestellte Rennauswahl - unabhaengig von
+    Athlet oder Saison. Fuer den Vergleich-Reiter: Trainer waehlen einzelne
+    Rennen (auch verschiedener Athlet:innen) und exportieren die Auswahl."""
+    rows = master[master['race_id'].isin(race_ids)].copy()
+    if rows.empty:
+        raise ValueError('Keine der gewaehlten Rennen wurde im Master gefunden.')
+    rows['_ord'] = rows['race_id'].map({r: i for i, r in enumerate(race_ids)})
+    rows = rows.sort_values('_ord')
+
+    vollstaendig = [r for _, r in rows.iterrows()
+                    if r['status'] == 'OK' and all(pd.notna(r[f'h{i}']) for i in range(1, 11))]
+    ref = min(vollstaendig, key=lambda r: float(r['zeit'])) if vollstaendig else None
+
+    buffer = io.BytesIO()
+    pagesize = landscape(A3)
+    doc = SimpleDocTemplate(
+        buffer, pagesize=pagesize,
+        leftMargin=12 * mm, rightMargin=12 * mm, topMargin=12 * mm, bottomMargin=12 * mm,
+        title=titel)
+
+    styles = {
+        'titel': ParagraphStyle('titel', fontName='Helvetica-Bold', fontSize=18,
+                                textColor=colors.white, leading=22),
+        'hinweis': ParagraphStyle('hinweis', fontName='Helvetica', fontSize=7.5, textColor=GRAU),
+    }
+    story = []
+
+    kopf_tbl = Table([[Paragraph(titel.upper() + '   ·   400 M HÜRDEN', styles['titel'])]],
+                     colWidths=[doc.width])
+    kopf_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), TINTE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10), ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(kopf_tbl)
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f'{len(rows)} frei gewählte Rennen.   Je Rennen zwei Zeilen: oben die '
+                           'Abschnittszeit, darunter die Schrittzahl im gleichen Abschnitt.',
+                           styles['hinweis']))
+    story.append(Spacer(1, 6))
+
+    spalten = ['Läufer:in'] + SPALTEN
+    daten = [spalten]
+    for _, r in rows.iterrows():
+        z1, z2 = rennzeilen(r, mit_athlet=True)
+        daten += [z1, z2]
+
+    breiten = [26, 22, 30, 10, 12, 12, 14, 14, 14, 13] + [15] + [13] * 9 + [15]
+    skala = doc.width / sum(breiten)
+    breiten = [b * skala for b in breiten]
+
+    tbl = Table(daten, colWidths=breiten, repeatRows=1)
+    stil = [
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DCE3EA')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), TINTE),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 7.5),
+        ('ALIGN', (4, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (2, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.4, RAND),
+        ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3), ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]
+    for i in range(len(rows)):
+        r0 = 1 + i * 2
+        for c in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
+            stil.append(('SPAN', (c, r0), (c, r0 + 1)))
+        stil.append(('BACKGROUND', (0, r0 + 1), (-1, r0 + 1), SCHRITTZEILE))
+        stil.append(('FONTNAME', (6, r0), (6, r0), 'Helvetica-Bold'))
+    tbl.setStyle(TableStyle(stil))
+    story.append(tbl)
+    story.append(Spacer(1, 10))
+
+    bild1 = grafik_rueckstand(rows, ref)
+    bild2 = grafik_ermuedung(rows)
     if bild1:
         story.append(KeepTogether([Image(bild1, width=doc.width * 0.62,
                                          height=doc.width * 0.62 * 0.42)]))

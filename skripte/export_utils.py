@@ -8,7 +8,7 @@ Bewusst ohne Streamlit-Import, damit diese Funktionen mit einfachem
 import io
 
 from athletenblatt import baue as baue_xlsx
-from pdf_export import baue_pdf
+from pdf_export import baue_pdf, baue_pdf_auswahl
 
 
 def xlsx_bytes(master, athlet, saison):
@@ -21,3 +21,8 @@ def xlsx_bytes(master, athlet, saison):
 
 def pdf_bytes(master, athlet, saison):
     return baue_pdf(master, athlet, saison).read()
+
+
+def pdf_bytes_auswahl(master, race_ids, titel='Rennvergleich'):
+    """PDF fuer eine frei zusammengestellte Rennauswahl (Vergleich-Reiter)."""
+    return baue_pdf_auswahl(master, race_ids, titel).read()
