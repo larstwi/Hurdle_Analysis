@@ -20,7 +20,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Table, TableStyle,
-                                 Spacer, Image, KeepTogether)
+                                 Spacer, Image, KeepTogether, PageBreak)
 
 from master_io import load_master
 from auswertung import select_season, segmente, abschnittsbezeichnung, label
@@ -85,6 +85,27 @@ def rennzeilen(row, mit_athlet=False):
     leer = [''] * (6 if mit_athlet else 5)
     zeile2 = leer + [''] * 4 + [fmt(v, 0) if v is not None else '' for v in schritte]
     return zeile1, zeile2
+
+
+def grafikseite(doc, bild1, bild2):
+    """Beide Diagramme zusammen auf einer eigenen Seite, gross und mittig.
+
+    Vorher lag jedes Diagramm einzeln bei 35% der Seitenhoehe, oft ueber zwei
+    Seiten verteilt (eines gequetscht unter der Tabelle, eines allein auf der
+    naechsten, grossteils leeren Seite). Jetzt: erzwungener Seitenumbruch,
+    beide Bilder auf voller Breite gestapelt - nutzt die A3-Seite tatsaechlich.
+    """
+    elemente = [e for e in (bild1, bild2) if e]
+    if not elemente:
+        return []
+    breite = doc.width * 0.78
+    hoehe = breite * 0.40   # entspricht dem matplotlib-Seitenverhaeltnis (9 x 3.6)
+    story = [PageBreak()]
+    for i, bild in enumerate(elemente):
+        story.append(Image(bild, width=breite, height=hoehe))
+        if i < len(elemente) - 1:
+            story.append(Spacer(1, 14))
+    return story
 
 
 def baue_pdf(master, athlet, saison, vergleiche=4):
@@ -203,13 +224,7 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
     reihenfolge = pd.concat([lauf, vgl]) if not vgl.empty else lauf
     bild1 = grafik_rueckstand(lauf, auswahl['ref'])
     bild2 = grafik_ermuedung(reihenfolge)
-    if bild1:
-        story.append(KeepTogether([Image(bild1, width=doc.width * 0.62,
-                                         height=doc.width * 0.62 * 0.42)]))
-        story.append(Spacer(1, 6))
-    if bild2:
-        story.append(KeepTogether([Image(bild2, width=doc.width * 0.62,
-                                         height=doc.width * 0.62 * 0.42)]))
+    story += grafikseite(doc, bild1, bild2)
 
     doc.build(story)
     buffer.seek(0)
@@ -295,13 +310,7 @@ def baue_pdf_auswahl(master, race_ids, titel='Rennvergleich'):
 
     bild1 = grafik_rueckstand(rows, ref)
     bild2 = grafik_ermuedung(rows)
-    if bild1:
-        story.append(KeepTogether([Image(bild1, width=doc.width * 0.62,
-                                         height=doc.width * 0.62 * 0.42)]))
-        story.append(Spacer(1, 6))
-    if bild2:
-        story.append(KeepTogether([Image(bild2, width=doc.width * 0.62,
-                                         height=doc.width * 0.62 * 0.42)]))
+    story += grafikseite(doc, bild1, bild2)
 
     doc.build(story)
     buffer.seek(0)
