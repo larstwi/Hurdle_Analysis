@@ -254,14 +254,17 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
         stil.append(('SPAN', (1, r0), (1, r0 + 1)))
         for c in (2, 3, 4, 5, 6, 7, 8):
             stil.append(('SPAN', (c, r0), (c, r0 + 1)))
-        stil.append(('BACKGROUND', (0, r0 + 1), (-1, r0 + 1), SCHRITTZEILE))
+        # Graue Schrittzeilen-Fuellung nur ab den Abschnittsspalten (Index 9) -
+        # Rennen/Ergebnis (0-8) sind mit der oberen Zeile verbunden und
+        # duerfen hier nicht mit uebermalt werden.
+        stil.append(('BACKGROUND', (9, r0 + 1), (-1, r0 + 1), SCHRITTZEILE))
         stil.append(('FONTNAME', (5, r0), (5, r0), 'Helvetica-Bold'))
         if ist_vgl:
             stil.append(('TEXTCOLOR', (0, r0), (-1, r0), VERGLEICH_TEXT))
             stil.append(('FONTNAME', (0, r0), (1, r0), 'Helvetica-Oblique'))
         if ist_pb:
             stil.append(('BOX', (0, r0), (-1, r0 + 1), 1.4, GOLD))
-            stil.append(('BACKGROUND', (0, r0), (1, r0), GOLD_HELL))
+            stil.append(('BACKGROUND', (0, r0), (1, r0 + 1), GOLD_HELL))
     if vgl_kopf_idx is not None:
         stil.append(('SPAN', (0, vgl_kopf_idx), (-1, vgl_kopf_idx)))
         stil.append(('BACKGROUND', (0, vgl_kopf_idx), (-1, vgl_kopf_idx), GRAU))
@@ -355,7 +358,9 @@ def baue_pdf_auswahl(master, race_ids, titel='Rennvergleich'):
         r0 = 1 + i * 2
         for c in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
             stil.append(('SPAN', (c, r0), (c, r0 + 1)))
-        stil.append(('BACKGROUND', (0, r0 + 1), (-1, r0 + 1), SCHRITTZEILE))
+        # Rennen/Ergebnis (Spalten 0-9, inkl. Laeufer:in) sind mit der oberen
+        # Zeile verbunden - graue Fuellung erst ab den Abschnittsspalten.
+        stil.append(('BACKGROUND', (10, r0 + 1), (-1, r0 + 1), SCHRITTZEILE))
         stil.append(('FONTNAME', (6, r0), (6, r0), 'Helvetica-Bold'))
     tbl.setStyle(TableStyle(stil))
     story.append(tbl)

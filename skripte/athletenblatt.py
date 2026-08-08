@@ -11,6 +11,7 @@ Die Zahlen selbst bleiben Formeln auf das Blatt "Rohdaten".
 """
 
 import sys
+import io
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.comments import Comment
@@ -22,6 +23,7 @@ from openpyxl.chart.data_source import StrRef
 
 from master_io import load_master
 from auswertung import select_season, kuerzel_runde
+from xlsx_cache import injiziere_cache_werte
 
 ARIAL = 'Arial'
 TINTE, GRAU = '1F3348', '6B7A8A'
@@ -121,42 +123,108 @@ def werte(r):
     return seg, s
 
 
-def rennblock(ws, oben, quelle, daten, blass=False):
-    """Schreibt ein Rennen als zwei Zeilen. Gibt die naechste freie Zeile zurueck."""
+def exceldatum(d):
+    """Python-Datum -> Excel-Seriennummer (Tage seit 1899-12-30, Excels Epoche)."""
+    import datetime
+    if isinstance(d, str):
+        d = datetime.date.fromisoformat(d)
+    return (d - datetime.date(1899, 12, 30)).days
+
+
+def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
+    """Schreibt ein Rennen als zwei Zeilen. Gibt die naechste freie Zeile zurueck.
+
+    cache sammelt (blattname, zellref, wert, ist_text) fuer jede Formel -
+    wird am Ende in injiziere_cache_werte() genutzt, damit auch Programme
+    mit schwacher Formel-Unterstuetzung (z.B. Apple Numbers) sofort die
+    richtigen Werte zeigen, statt der leeren Formel-Zwischenspeicher, die
+    openpyxl an sich hinterlaesst.
+    """
     q, unten = quelle, oben + 1
     seg, schritte = werte(daten)
     ton = '5A6B7C' if blass else '1A2430'
     leer = lambda ref: f'IF({ref}="","",{ref})'
 
+    def num(v):
+        return None if (v is None or v == '' or (isinstance(v, float) and pd.isna(v))) else float(v)
+
+    def merke(row, col, wert, ist_text=False):
+        cache.append((blattname, f'{L(col)}{row}', wert, ist_text))
+
+    h = [num(daten.get(f'h{i}')) for i in range(1, 11)]
+    zeit_num = num(daten.get('zeit'))
+    status = daten.get('status') or 'OK'
+    kurz_txt = kuerzel_runde(daten.get('runde'), daten.get('lauf'))
+    datum_txt = daten.get('datum')
+
     ws.cell(oben, 1, f'={leer(rd(R_DATUM, q))}')
+    if datum_txt:
+        merke(oben, 1, exceldatum(datum_txt))
     ws.cell(oben, 2, f'={leer(rd(R_ORT, q))}')
+    if daten.get('ort'):
+        merke(oben, 2, daten.get('ort'), True)
     ws.cell(oben, 3, f'={leer(rd(R_KURZ, q))}')
+    if kurz_txt:
+        merke(oben, 3, kurz_txt, True)
     ws.cell(oben, 4, f'={leer(rd(R_BAHN, q))}')
+    if daten.get('bahn') not in (None, ''):
+        merke(oben, 4, num(daten.get('bahn')))
     ws.cell(oben, 5, f'={leer(rd(R_RANG, q))}')
+    if daten.get('rang') not in (None, ''):
+        merke(oben, 5, num(daten.get('rang')))
+
     ws.cell(oben, C_ZEIT, f'=IF({rd(R_STATUS, q)}<>"OK",{rd(R_STATUS, q)},{rd(R_ZEIT, q)})')
+    if status != 'OK':
+        merke(oben, C_ZEIT, status, True)
+    elif zeit_num is not None:
+        merke(oben, C_ZEIT, zeit_num)
 
     h5, h6 = rd(R_H5, q), rd(R_H6, q)
+    m200 = None if h[4] is None or h[5] is None else h[4] + (h[5] - h[4]) * 14 / 35
     ws.cell(oben, C_H200, f'=IF(OR({h5}="",{h6}=""),"",{h5}+({h6}-{h5})*14/35)')
+    if m200 is not None:
+        merke(oben, C_H200, round(m200, 4))
+
+    m400 = None if m200 is None or zeit_num is None else zeit_num - m200
     ws.cell(oben, C_H400, f'=IF(OR({L(C_H200)}{oben}="",{rd(R_ZEIT, q)}=""),"",'
                           f'{rd(R_ZEIT, q)}-{L(C_H200)}{oben})')
+    if m400 is not None:
+        merke(oben, C_H400, round(m400, 4))
+
+    diff = None if m200 is None or m400 is None else m400 - m200
     ws.cell(oben, C_DIFF, f'=IF(OR({L(C_H200)}{oben}="",{L(C_H400)}{oben}=""),"",'
                           f'{L(C_H400)}{oben}-{L(C_H200)}{oben})')
+    if diff is not None:
+        merke(oben, C_DIFF, round(diff, 4))
 
     for j in range(1, C_DIFF + 1):
         ws.merge_cells(start_row=oben, start_column=j, end_row=unten, end_column=j)
 
     ws.cell(oben, C_SEG0, f'=IF({rd(R_H1, q)}="","",{rd(R_H1, q)})')
+    if h[0] is not None:
+        merke(oben, C_SEG0, h[0])
+
     for i in range(9):
         a, b = rd(R_H1 + i, q), rd(R_H1 + i + 1, q)
         # Segmentzeit (b-a) plus Zwischenzeit seit Start in Klammern (b) -
         # letztere steht schon in den Rohdaten, wird hier nur mit angezeigt.
         ws.cell(oben, C_SEG35_0 + i, f'=IF(OR({a}="",{b}=""),"",'
                                      f'TEXT({b}-{a},"0.00")&" ("&TEXT({b},"0.00")&")")')
+        if h[i] is not None and h[i + 1] is not None:
+            merke(oben, C_SEG35_0 + i, f'{h[i+1]-h[i]:.2f} ({h[i+1]:.2f})', True)
+
     h10, zeit = rd(R_H10, q), rd(R_ZEIT, q)
     ws.cell(oben, C_SEGZ, f'=IF(OR({h10}="",{zeit}=""),"",'
                           f'TEXT({zeit}-{h10},"0.00")&" ("&TEXT({zeit},"0.00")&")")')
+    if h[9] is not None and zeit_num is not None:
+        merke(oben, C_SEGZ, f'{zeit_num-h[9]:.2f} ({zeit_num:.2f})', True)
+
+    s_namen = ['s_start'] + [f's{k}_{k+1}' for k in range(1, 10)]
     for i in range(10):
         ws.cell(unten, C_SEG0 + i, f'={leer(rd(R_S0 + i, q))}')
+        sv = daten.get(s_namen[i])
+        if sv not in (None, '') and not (isinstance(sv, float) and pd.isna(sv)):
+            merke(unten, C_SEG0 + i, int(float(sv)))
 
     for j in range(1, BREIT + 1):
         c = ws.cell(oben, j)
@@ -264,10 +332,11 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
 
     z = 9
     saison_zeilen, block_von = [], {}
+    formel_cache = []
     for _, r in lauf.iterrows():
         saison_zeilen.append(z)
         block_von[r['race_id']] = z
-        z = rennblock(ws, z, idx[r['race_id']], r)
+        z = rennblock(ws, 'Saison', z, idx[r['race_id']], r, formel_cache)
 
     if not vgl.empty:
         z += 1
@@ -277,7 +346,7 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
         z += 1
         for _, r in vgl.iterrows():
             block_von[r['race_id']] = z
-            z = rennblock(ws, z, idx[r['race_id']], r, blass=True)
+            z = rennblock(ws, 'Saison', z, idx[r['race_id']], r, formel_cache, blass=True)
     letzte = z - 1
 
     if pb_id and pb_id in block_von:
@@ -443,7 +512,19 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
     ws.print_title_rows = '7:8'
     ws.print_area = f'A1:{L(BREIT)}{letzte}'
 
-    wb.save(ziel)
+    # Formeln zwischenspeichern (openpyxl selbst laesst <v> leer; Excel und
+    # LibreOffice rechnen beim Oeffnen ohnehin neu, aber Apple Numbers zeigt
+    # sonst 0 statt der echten Werte - siehe xlsx_cache.py).
+    puffer = io.BytesIO()
+    wb.save(puffer)
+    fertig = injiziere_cache_werte(puffer.getvalue(), {'Saison': {
+        ref: (wert, ist_text) for blatt, ref, wert, ist_text in formel_cache if blatt == 'Saison'
+    }})
+    if hasattr(ziel, 'write'):
+        ziel.write(fertig)
+    else:
+        with open(ziel, 'wb') as f:
+            f.write(fertig)
     return ziel, len(lauf), len(vgl)
 
 
