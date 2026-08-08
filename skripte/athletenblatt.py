@@ -52,7 +52,7 @@ C_SEG35_0, C_SEG35_1 = 11, 19    # die neun 35-m-Abschnitte
 C_SEGZ = 20                      # H10–Ziel
 BREIT = C_SEGZ
 
-BREITEN = [11, 17, 5, 6, 6, 9, 8, 9, 8, 10] + [8] * 9 + [10]
+BREITEN = [11, 17, 5, 6, 6, 9, 8, 9, 8, 10] + [13] * 9 + [14]
 
 # Spalten auf "Rohdaten"
 R_DATUM, R_ORT, R_RUNDE, R_LAUF, R_BAHN, R_RANG, R_ZEIT, R_STATUS = 2, 3, 4, 5, 6, 7, 8, 9
@@ -148,9 +148,13 @@ def rennblock(ws, oben, quelle, daten, blass=False):
     ws.cell(oben, C_SEG0, f'=IF({rd(R_H1, q)}="","",{rd(R_H1, q)})')
     for i in range(9):
         a, b = rd(R_H1 + i, q), rd(R_H1 + i + 1, q)
-        ws.cell(oben, C_SEG35_0 + i, f'=IF(OR({a}="",{b}=""),"",{b}-{a})')
-    ws.cell(oben, C_SEGZ, f'=IF(OR({rd(R_H10, q)}="",{rd(R_ZEIT, q)}=""),"",'
-                          f'{rd(R_ZEIT, q)}-{rd(R_H10, q)})')
+        # Segmentzeit (b-a) plus Zwischenzeit seit Start in Klammern (b) -
+        # letztere steht schon in den Rohdaten, wird hier nur mit angezeigt.
+        ws.cell(oben, C_SEG35_0 + i, f'=IF(OR({a}="",{b}=""),"",'
+                                     f'TEXT({b}-{a},"0.00")&" ("&TEXT({b},"0.00")&")")')
+    h10, zeit = rd(R_H10, q), rd(R_ZEIT, q)
+    ws.cell(oben, C_SEGZ, f'=IF(OR({h10}="",{zeit}=""),"",'
+                          f'TEXT({zeit}-{h10},"0.00")&" ("&TEXT({zeit},"0.00")&")")')
     for i in range(10):
         ws.cell(unten, C_SEG0 + i, f'={leer(rd(R_S0 + i, q))}')
 
@@ -164,8 +168,10 @@ def rennblock(ws, oben, quelle, daten, blass=False):
             c.number_format = 'DD.MM.YYYY'
         elif j == C_DIFF:
             c.number_format = '+0.00;−0.00;0.00'
-        elif j == C_ZEIT or j in (C_H200, C_H400) or j >= C_SEG0:
+        elif j == C_ZEIT or j in (C_H200, C_H400) or j == C_SEG0:
             c.number_format = '0.00'
+        elif j > C_SEG0:
+            c.number_format = '@'   # Text: "Segment (Zwischenzeit)"
 
     for j in range(1, C_DIFF + 1):
         ws.cell(unten, j).border = UNTEN
@@ -240,13 +246,14 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
 
     ws.merge_cells(start_row=5, start_column=1, end_row=5, end_column=BREIT)
     kopfzelle(ws, 'A5',
-              'Je Rennen zwei Zeilen: oben die Abschnittszeit, darunter die Schrittzahl im '
-              'gleichen Abschnitt.   Goldener Rahmen = persönliche Bestzeit.',
+              'Je Rennen zwei Zeilen: oben die Abschnittszeit mit Zwischenzeit seit Start in '
+              'Klammern, darunter die Schrittzahl im gleichen Abschnitt.   '
+              'Goldener Rahmen = persönliche Bestzeit.',
               groesse=8, fett=False, vordergrund=GRAU, fuellung=None, ausrichtung='left')
     ws.row_dimensions[5].height = 14
 
     for a, b, t in [(1, 5, 'RENNEN'), (C_ZEIT, C_DIFF, 'ERGEBNIS'),
-                    (C_SEG0, C_SEGZ, 'ABSCHNITTE   ·   oben Sekunden, unten Schritte')]:
+                    (C_SEG0, C_SEGZ, 'ABSCHNITTE   ·   Sekunden (Zwischenzeit)   ·   unten Schritte')]:
         ws.merge_cells(start_row=7, start_column=a, end_row=7, end_column=b)
         kopfzelle(ws, f'{L(a)}7', t, groesse=9)
     for j, t in enumerate(KOPF_RENNEN + KOPF_ERGEBNIS + KOPF_SEGMENT, 1):

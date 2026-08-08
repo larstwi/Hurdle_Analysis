@@ -56,7 +56,7 @@ from athletenblatt import BREITEN as SPALTENBREITEN
 # Gruppenkopf ueber den Spaltentiteln, wie in Zeile 7 des Excel-Blatts.
 # (Spalte von, Spalte bis, Beschriftung) - 0-basiert.
 GRUPPEN = [(0, 4, 'RENNEN'), (5, 8, 'ERGEBNIS'),
-           (9, 19, 'ABSCHNITTE   ·   oben Sekunden, unten Schritte')]
+           (9, 19, 'ABSCHNITTE   ·   Sekunden (Zwischenzeit)   ·   unten Schritte')]
 KOPF_HELL = colors.HexColor('#DCE3EA')
 
 
@@ -98,13 +98,31 @@ def rennzeilen(row, mit_athlet=False):
     """
     seg, schritte = segmente(row)
     m200, m400, diff = h200_h400_diff(row)
+
+    # Zwischenzeit (Zeit seit Start) je Abschnittsende, fuer die Klammer-
+    # Anzeige "Segment (Zwischenzeit)". Start-H1 bekommt keine Klammer,
+    # da Segment und Zwischenzeit dort identisch waeren.
+    def f(v):
+        return None if v is None or (isinstance(v, float) and pd.isna(v)) else float(v)
+    h = [f(row.get(f'h{i}')) for i in range(1, 11)]
+    zeit_num = f(row.get('zeit'))
+    zwischen = [h[0]] + h[1:10] + [zeit_num]
+
+    def segfmt(i):
+        if seg[i] is None:
+            return ''
+        if i == 0:
+            return fmt(seg[i])
+        zw = fmt(zwischen[i])
+        return f'{fmt(seg[i])} ({zw})' if zw != '' else fmt(seg[i])
+
     kopf = [row.get('athlet') or ''] if mit_athlet else []
     kopf += [str(pd.to_datetime(row['datum']).strftime('%d.%m.%Y')) if pd.notna(row['datum']) else '',
             row.get('ort') or '', kurz(row),
             fmt(row.get('bahn'), 0), fmt(row.get('rang'), 0)]
     zeile1 = kopf + [zeitzeile(row), fmt(m200), fmt(m400),
                      ('+' if diff and diff > 0 else '') + fmt(diff) if diff is not None else ''] \
-             + [fmt(v) for v in seg]
+             + [segfmt(i) for i in range(len(seg))]
     leer = [''] * (6 if mit_athlet else 5)
     zeile2 = leer + [''] * 4 + [fmt(v, 0) if v is not None else '' for v in schritte]
     return zeile1, zeile2
@@ -178,7 +196,7 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
     kpi_tbl.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 2),
                                  ('TOPPADDING', (0, 0), (-1, -1), 1)]))
     story.append(kpi_tbl)
-    story.append(Paragraph('Je Rennen zwei Zeilen: oben die Abschnittszeit, darunter die '
+    story.append(Paragraph('Je Rennen zwei Zeilen: oben die Abschnittszeit mit Zwischenzeit seit Start in Klammern, darunter die '
                            'Schrittzahl im gleichen Abschnitt.   Goldener Rahmen = '
                            'persönliche Bestzeit.', styles['hinweis']))
     story.append(Spacer(1, 6))
@@ -302,7 +320,8 @@ def baue_pdf_auswahl(master, race_ids, titel='Rennvergleich'):
     story.append(kopf_tbl)
     story.append(Spacer(1, 6))
     story.append(Paragraph(f'{len(rows)} frei gewählte Rennen.   Je Rennen zwei Zeilen: oben die '
-                           'Abschnittszeit, darunter die Schrittzahl im gleichen Abschnitt.',
+                           'Abschnittszeit mit Zwischenzeit seit Start in Klammern, darunter die Schrittzahl '
+                           'im gleichen Abschnitt.',
                            styles['hinweis']))
     story.append(Spacer(1, 6))
 
