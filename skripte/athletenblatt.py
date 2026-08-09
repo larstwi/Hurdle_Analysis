@@ -25,7 +25,7 @@ from openpyxl.chart.data_source import StrRef
 
 from master_io import load_master
 from auswertung import select_season, kuerzel_runde
-from xlsx_cache import setze_rahmen_und_fuellung
+from xlsx_cache import setze_rahmen_und_fuellung, stelle_apply_flags_sicher
 
 ARIAL = 'Arial'
 TINTE, GRAU = '1F3348', '6B7A8A'
@@ -247,14 +247,17 @@ def markiere_bestzeit(ws, oben, unten, breit):
     dem Speichern direkt im XML, das ist zuverlaessig.
 
     Die Spalten 1-9 sind je Rennen ueber oben+unten zu einer sichtbaren Zelle
-    verschmolzen (siehe rennblock). Fuer alle Spalten (auch die echten
-    zweizeiligen Abschnittsspalten 10-BREIT) wird der komplette Rahmen auf
-    BEIDE Zeilen gesetzt statt ihn oben/unten aufzuteilen - eine reine
-    Aufteilung (oben nur top, unten nur bottom) reicht in Numbers fuer die
-    untere Aussenkante nicht zuverlaessig aus, auch bei nicht verschmolzenen
-    Zellen. Nebeneffekt: zwischen Zeit- und Schrittzeile liegt dadurch eine
-    duenne goldene Linie statt gar keiner - das ist der Preis fuer eine in
-    jeder Anwendung sichtbar geschlossene Box.
+    verschmolzen (siehe rennblock). Excel bildet den sichtbaren Aussenrand
+    einer verschmolzenen Zelle aus den Randzellen des Bereichs (oben liefert
+    die obere Kante, unten die untere usw.), darum bekommen bei diesen
+    Spalten beide Zellen (oben und unten) denselben vollstaendigen Rahmen.
+    Bei den echten zweizeiligen Abschnittsspalten (10-BREIT) bleibt es beim
+    einfachen Aufteilen (oben nur top, unten nur bottom) - Excel und die
+    iOS-Vorschau zeigen das korrekt; nur die volle Numbers-App auf dem Mac
+    zeigt dort noch keine untere Aussenkante. Eine "beidseitig volle"
+    Variante wuerde das zwar kaschieren, erzeugt aber sichtbar eine
+    zusaetzliche goldene Linie mitten durch die Abschnittsspalten - das ist
+    schlechter als die verbleibende Numbers-Unschoenheit.
     """
     GOLD_SEITE = ('medium', '00' + GOLD)
     GRAU_SEITE = ('thin', '00' + RAND)
@@ -263,14 +266,16 @@ def markiere_bestzeit(ws, oben, unten, breit):
         links = GOLD_SEITE if j == 1 else GRAU_SEITE
         rechts = GOLD_SEITE if j == breit else GRAU_SEITE
         fuellung = GOLD_HELL if j <= C_DIFF else None
-        for r in (oben, unten):
-            zellen[f'{L(j)}{r}'] = dict(left=links, right=rechts,
-                                         top=GOLD_SEITE, bottom=GOLD_SEITE, fill=fuellung)
+        if j <= C_DIFF:
+            for r in (oben, unten):
+                zellen[f'{L(j)}{r}'] = dict(left=links, right=rechts,
+                                             top=GOLD_SEITE, bottom=GOLD_SEITE, fill=fuellung)
+        else:
+            zellen[f'{L(j)}{oben}'] = dict(left=links, right=rechts, top=GOLD_SEITE, bottom=None)
+            zellen[f'{L(j)}{unten}'] = dict(left=links, right=rechts, top=None, bottom=GOLD_SEITE)
     kopf = ws.cell(oben, 1)
     kopf.comment = Comment('Persönliche Bestzeit', 'Auswertung')
     return zellen
-    kopf = ws.cell(oben, 1)
-    kopf.comment = Comment('Persönliche Bestzeit', 'Auswertung')
 
 
 def baue(master, athlet, saison, ziel, vergleiche=4):
@@ -521,11 +526,16 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
     # Rahmen/Faellung der PB-Zeile direkt im XML setzen (siehe
     # markiere_bestzeit()/xlsx_cache.py: openpyxl selbst verwirft das beim
     # Speichern zuverlaessig bei so vielen verschmolzenen Zellen im Blatt).
+    # Danach fehlende apply*-Attribute nachtragen (siehe
+    # stelle_apply_flags_sicher): ohne applyFill zeigt Excel z.B. die
+    # hellgraue/-blaue Schrittzeile teils nicht an, obwohl der Fuellwert
+    # korrekt gespeichert ist.
     puffer = io.BytesIO()
     wb.save(puffer)
     fertig = puffer.getvalue()
     if pb_rahmen:
         fertig = setze_rahmen_und_fuellung(fertig, 'Saison', pb_rahmen)
+    fertig = stelle_apply_flags_sicher(fertig)
     if hasattr(ziel, 'write'):
         ziel.write(fertig)
     else:

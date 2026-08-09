@@ -202,3 +202,45 @@ def setze_rahmen_und_fuellung(daten_bytes, blattname, zellen):
             zi.external_attr = infos[name].external_attr
             z.writestr(zi, data)
     return out.getvalue()
+
+
+def stelle_apply_flags_sicher(daten_bytes):
+    """Setzt applyFont/applyFill/applyBorder/applyNumberFormat/applyAlignment
+    auf jedem <xf>-Eintrag in styles.xml nach, wo der jeweilige Index von 0
+    abweicht (bzw. ein <alignment>-Kind vorhanden ist), das apply*-Attribut
+    aber fehlt.
+
+    openpyxl setzt diese Attribute beim Speichern nicht zuverlaessig. Ohne
+    z.B. applyFill="1" ist eine Faerbung nach strenger OOXML-Lesart nicht
+    verbindlich anzuzeigen - LibreOffice, die PDF-Erzeugung und die iOS-
+    Vorschau zeigen sie trotzdem an, das eigentliche Excel-Programm zeigt
+    genau diese Zellen aber teils ungefaerbt. Diese Funktion ergaenzt die
+    fehlenden Attribute nachtraeglich, ohne an den Werten selbst etwas zu
+    aendern - rein additiv, nichts wird entfernt oder ueberschrieben.
+    """
+    with zipfile.ZipFile(io.BytesIO(daten_bytes)) as z:
+        inhalt = {n: z.read(n) for n in z.namelist()}
+        infos = {n: z.getinfo(n) for n in z.namelist()}
+
+    stree = ET.fromstring(inhalt['xl/styles.xml'].decode('utf-8'))
+    cellxfs_el = stree.find(_q('cellXfs'))
+    for xf in cellxfs_el:
+        for id_attr, apply_attr in (('fontId', 'applyFont'), ('fillId', 'applyFill'),
+                                     ('borderId', 'applyBorder'),
+                                     ('numFmtId', 'applyNumberFormat')):
+            wert = xf.get(id_attr)
+            if wert is not None and wert != '0' and xf.get(apply_attr) is None:
+                xf.set(apply_attr, '1')
+        if xf.find(_q('alignment')) is not None and xf.get('applyAlignment') is None:
+            xf.set('applyAlignment', '1')
+
+    inhalt['xl/styles.xml'] = ET.tostring(stree, encoding='unicode').encode('utf-8')
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name, data in inhalt.items():
+            zi = zipfile.ZipInfo(name, date_time=infos[name].date_time)
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zi.external_attr = infos[name].external_attr
+            z.writestr(zi, data)
+    return out.getvalue()
