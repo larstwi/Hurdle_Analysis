@@ -247,11 +247,14 @@ def markiere_bestzeit(ws, oben, unten, breit):
     dem Speichern direkt im XML, das ist zuverlaessig.
 
     Die Spalten 1-9 sind je Rennen ueber oben+unten zu einer sichtbaren Zelle
-    verschmolzen (siehe rennblock). Excel bildet den sichtbaren Aussenrand
-    einer verschmolzenen Zelle aus den Randzellen des Bereichs (oben liefert
-    die obere Kante, unten die untere usw.), Numbers zeigt teils die "zweite
-    Haelfte" separat mit eigenem Rahmen. Darum bekommen bei diesen Spalten
-    beide Zellen (oben und unten) denselben vollstaendigen Rahmen.
+    verschmolzen (siehe rennblock). Fuer alle Spalten (auch die echten
+    zweizeiligen Abschnittsspalten 10-BREIT) wird der komplette Rahmen auf
+    BEIDE Zeilen gesetzt statt ihn oben/unten aufzuteilen - eine reine
+    Aufteilung (oben nur top, unten nur bottom) reicht in Numbers fuer die
+    untere Aussenkante nicht zuverlaessig aus, auch bei nicht verschmolzenen
+    Zellen. Nebeneffekt: zwischen Zeit- und Schrittzeile liegt dadurch eine
+    duenne goldene Linie statt gar keiner - das ist der Preis fuer eine in
+    jeder Anwendung sichtbar geschlossene Box.
     """
     GOLD_SEITE = ('medium', '00' + GOLD)
     GRAU_SEITE = ('thin', '00' + RAND)
@@ -260,13 +263,9 @@ def markiere_bestzeit(ws, oben, unten, breit):
         links = GOLD_SEITE if j == 1 else GRAU_SEITE
         rechts = GOLD_SEITE if j == breit else GRAU_SEITE
         fuellung = GOLD_HELL if j <= C_DIFF else None
-        if j <= C_DIFF:
-            for r in (oben, unten):
-                zellen[f'{L(j)}{r}'] = dict(left=links, right=rechts,
-                                             top=GOLD_SEITE, bottom=GOLD_SEITE, fill=fuellung)
-        else:
-            zellen[f'{L(j)}{oben}'] = dict(left=links, right=rechts, top=GOLD_SEITE, bottom=None)
-            zellen[f'{L(j)}{unten}'] = dict(left=links, right=rechts, top=None, bottom=GOLD_SEITE)
+        for r in (oben, unten):
+            zellen[f'{L(j)}{r}'] = dict(left=links, right=rechts,
+                                         top=GOLD_SEITE, bottom=GOLD_SEITE, fill=fuellung)
     kopf = ws.cell(oben, 1)
     kopf.comment = Comment('Persönliche Bestzeit', 'Auswertung')
     return zellen
