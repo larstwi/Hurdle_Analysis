@@ -123,14 +123,6 @@ def werte(r):
     return seg, s
 
 
-def exceldatum(d):
-    """Python-Datum -> Excel-Seriennummer (Tage seit 1899-12-30, Excels Epoche)."""
-    import datetime
-    if isinstance(d, str):
-        d = datetime.date.fromisoformat(d)
-    return (d - datetime.date(1899, 12, 30)).days
-
-
 def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
     """Schreibt ein Rennen als zwei Zeilen. Gibt die naechste freie Zeile zurueck.
 
@@ -157,9 +149,18 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
     kurz_txt = kuerzel_runde(daten.get('runde'), daten.get('lauf'))
     datum_txt = daten.get('datum')
 
-    ws.cell(oben, 1, f'={leer(rd(R_DATUM, q))}')
+    # Datum als fertigen Text statt Formel+Zahlenformat: eine Formel-Zelle mit
+    # dem Datumsformat "DD.MM.YYYY" wird in Numbers/iOS-Vorschau nicht korrekt
+    # ausgewertet (Grossbuchstaben-Tokens D/Y werden dort offenbar nicht als
+    # Datumscode erkannt und als literaler Text stehen gelassen - nur MM kam
+    # richtig durch: "DD.05.YYYY" statt "28.05.2026"). Ein fertig formatierter
+    # String ist unabhaengig von jeder Formel- oder Formatinterpretation.
+    import datetime as _dt
+    datum_str = ''
     if datum_txt:
-        merke(oben, 1, exceldatum(datum_txt))
+        d = _dt.date.fromisoformat(str(datum_txt)) if isinstance(datum_txt, str) else datum_txt
+        datum_str = d.strftime('%d.%m.%Y')
+    ws.cell(oben, 1, datum_str)
     ws.cell(oben, 2, f'={leer(rd(R_ORT, q))}')
     if daten.get('ort'):
         merke(oben, 2, daten.get('ort'), True)
@@ -239,7 +240,7 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
         c.alignment = Alignment(horizontal='left' if j in (2, 3) else 'center',
                                 vertical='center')
         if j == 1:
-            c.number_format = 'DD.MM.YYYY'
+            c.number_format = '@'
         elif j == C_DIFF:
             c.number_format = '+0.00;−0.00;0.00'
         elif j == C_ZEIT or j in (C_H200, C_H400) or j == C_SEG0:
@@ -264,18 +265,37 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
 
 
 def markiere_bestzeit(ws, oben, unten, breit):
-    """Legt einen goldenen Rahmen um den Rennblock der persoenlichen Bestzeit."""
+    """Legt einen goldenen Rahmen um den gesamten Rennblock (alle Spalten) und
+    faerbt die Faellung (Datum bis Diff, Spalten 1-9) golden ein.
+
+    Die Spalten 1-9 sind je Rennen ueber oben+unten zu einer sichtbaren Zelle
+    verschmolzen (siehe rennblock). Numbers/iOS-Vorschau uebernehmen bei
+    einer verschmolzenen Zelle offenbar nur den Rahmen der Ankerzelle (oben)
+    fuer die gesamte sichtbare Flaeche - ein Rahmen, der nur auf der
+    "unsichtbaren" unteren Zelle gesetzt ist, geht dort verloren. Darum
+    bekommt bei diesen Spalten die Ankerzelle direkt den kompletten Rahmen
+    (oben UND unten), statt ihn wie bei den echten zweizeiligen
+    Abschnittsspalten auf zwei Zellen aufzuteilen.
+    """
     for j in range(1, breit + 1):
-        for r, kante in ((oben, 'top'), (unten, 'bottom')):
-            c = ws.cell(r, j)
+        links = gold if j == 1 else None
+        rechts = gold if j == breit else None
+        if j <= C_DIFF:
+            c = ws.cell(oben, j)
             alt = c.border
-            c.border = Border(
-                left=gold if j == 1 else alt.left,
-                right=gold if j == breit else alt.right,
-                top=gold if kante == 'top' else alt.top,
-                bottom=gold if kante == 'bottom' else alt.bottom)
+            c.border = Border(left=links or alt.left, right=rechts or alt.right,
+                               top=gold, bottom=gold)
+        else:
+            for r, kante in ((oben, 'top'), (unten, 'bottom')):
+                c = ws.cell(r, j)
+                alt = c.border
+                c.border = Border(
+                    left=links or alt.left, right=rechts or alt.right,
+                    top=gold if kante == 'top' else alt.top,
+                    bottom=gold if kante == 'bottom' else alt.bottom)
+    for j in range(1, C_DIFF + 1):
+        ws.cell(oben, j).fill = PatternFill('solid', fgColor=GOLD_HELL)
     kopf = ws.cell(oben, 1)
-    kopf.fill = PatternFill('solid', fgColor=GOLD_HELL)
     kopf.comment = Comment('Persönliche Bestzeit', 'Auswertung')
 
 
@@ -357,7 +377,7 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
 
     if pb_id and pb_id in block_von:
         o = block_von[pb_id]
-        markiere_bestzeit(ws, o, o + 1, C_DIFF)
+        markiere_bestzeit(ws, o, o + 1, BREIT)
 
     # ---------- Bezeichner fuer die Diagrammlegenden ----------
     # Auch hier bewusst als fertiger Text statt TEXT()-Verkettungsformel
