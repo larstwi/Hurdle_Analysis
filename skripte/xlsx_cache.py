@@ -205,18 +205,24 @@ def setze_rahmen_und_fuellung(daten_bytes, blattname, zellen):
 
 
 def stelle_apply_flags_sicher(daten_bytes):
-    """Setzt applyFont/applyFill/applyBorder/applyNumberFormat/applyAlignment
-    auf jedem <xf>-Eintrag in styles.xml nach, wo der jeweilige Index von 0
-    abweicht (bzw. ein <alignment>-Kind vorhanden ist), das apply*-Attribut
-    aber fehlt.
+    """Behebt zwei Excel-spezifische Darstellungsprobleme in styles.xml, die
+    bei openpyxl-generierten Dateien in echtem Excel auftreten, obwohl die
+    Datei laut OOXML-Spezifikation korrekt ist:
 
-    openpyxl setzt diese Attribute beim Speichern nicht zuverlaessig. Ohne
-    z.B. applyFill="1" ist eine Faerbung nach strenger OOXML-Lesart nicht
-    verbindlich anzuzeigen - LibreOffice, die PDF-Erzeugung und die iOS-
-    Vorschau zeigen sie trotzdem an, das eigentliche Excel-Programm zeigt
-    genau diese Zellen aber teils ungefaerbt. Diese Funktion ergaenzt die
-    fehlenden Attribute nachtraeglich, ohne an den Werten selbst etwas zu
-    aendern - rein additiv, nichts wird entfernt oder ueberschrieben.
+    1. Fehlende apply*-Attribute (applyFont/applyFill/applyBorder/
+       applyNumberFormat/applyAlignment) auf <xf>-Eintraegen: openpyxl setzt
+       sie beim Speichern nicht zuverlaessig. Ohne z.B. applyFill="1" ist
+       eine Faerbung nach strenger Lesart nicht verbindlich anzuzeigen.
+    2. Fehlendes bgColor bei soliden Flaechenfuellungen (patternType=
+       "solid"): Excel nutzt dafuer effektiv bgColor als sichtbare Farbe,
+       nicht fgColor - ein bekannter, gut dokumentierter Excel-Fallstrick.
+       openpyxl setzt beim Speichern nur fgColor.
+
+    LibreOffice, die PDF-Erzeugung und die iOS-Vorschau halten sich an die
+    Spezifikation (fgColor) und zeigen betroffene Zellen trotzdem korrekt an
+    - nur das eigentliche Excel-Programm zeigt sie ohne diese Ergaenzung
+    ungefaerbt. Beide Fixes sind rein additiv, an den Werten selbst aendert
+    sich nichts.
     """
     with zipfile.ZipFile(io.BytesIO(daten_bytes)) as z:
         inhalt = {n: z.read(n) for n in z.namelist()}
@@ -233,6 +239,27 @@ def stelle_apply_flags_sicher(daten_bytes):
                 xf.set(apply_attr, '1')
         if xf.find(_q('alignment')) is not None and xf.get('applyAlignment') is None:
             xf.set('applyAlignment', '1')
+
+    # Bekannter Excel-Fallstrick: bei patternType="solid" verwendet Excel
+    # effektiv bgColor als sichtbare Flaechenfarbe, nicht fgColor - andere
+    # Programme (LibreOffice, PDF-Renderer, iOS-Vorschau) halten sich an die
+    # Spezifikation und nehmen fgColor. openpyxl setzt bgColor beim Speichern
+    # nicht automatisch. Ohne diese Ergaenzung bleiben alle so erzeugten
+    # Faerbungen in echtem Excel unsichtbar, obwohl fgColor korrekt gesetzt
+    # ist. Wird hier fuer jede solide Fuellung nachgetragen (gleicher Wert).
+    fills_el = stree.find(_q('fills'))
+    for fill in fills_el:
+        pf = fill.find(_q('patternFill'))
+        if pf is None or pf.get('patternType') != 'solid':
+            continue
+        fg = pf.find(_q('fgColor'))
+        bg = pf.find(_q('bgColor'))
+        if fg is not None and bg is None:
+            farbe = fg.get('rgb')
+            if farbe and len(farbe) == 6:
+                farbe = '00' + farbe
+                fg.set('rgb', farbe)
+            ET.SubElement(pf, _q('bgColor')).set('rgb', farbe or fg.get('rgb'))
 
     inhalt['xl/styles.xml'] = ET.tostring(stree, encoding='unicode').encode('utf-8')
 
