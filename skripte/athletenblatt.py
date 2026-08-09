@@ -7,7 +7,9 @@ Aufbau pro Rennen: zwei Zeilen uebereinander.
 
 Farben werden direkt auf die Zellen geschrieben (nicht als bedingte
 Formatierung), damit sie auch in Numbers und in Vorschauen erhalten bleiben.
-Die Zahlen selbst bleiben Formeln auf das Blatt "Rohdaten".
+Alle Zellwerte sind fertige, in Python berechnete Werte statt Formeln auf
+das Blatt "Rohdaten" - weder Excel-Formeln noch injizierte Formel-Caches
+werden von der iOS-"Vorschau" (Quick Look) zuverlaessig ausgewertet.
 """
 
 import sys
@@ -23,7 +25,7 @@ from openpyxl.chart.data_source import StrRef
 
 from master_io import load_master
 from auswertung import select_season, kuerzel_runde
-from xlsx_cache import injiziere_cache_werte
+from xlsx_cache import setze_rahmen_und_fuellung
 
 ARIAL = 'Arial'
 TINTE, GRAU = '1F3348', '6B7A8A'
@@ -123,25 +125,18 @@ def werte(r):
     return seg, s
 
 
-def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
+def rennblock(ws, blattname, oben, daten, blass=False):
     """Schreibt ein Rennen als zwei Zeilen. Gibt die naechste freie Zeile zurueck.
 
-    cache sammelt (blattname, zellref, wert, ist_text) fuer jede Formel -
-    wird am Ende in injiziere_cache_werte() genutzt, damit auch Programme
-    mit schwacher Formel-Unterstuetzung (z.B. Apple Numbers) sofort die
-    richtigen Werte zeigen, statt der leeren Formel-Zwischenspeicher, die
-    openpyxl an sich hinterlaesst.
+    Alle Zellwerte werden direkt aus den Python-Daten geschrieben (keine
+    Formeln auf "Rohdaten") - siehe Kommentar weiter unten.
     """
-    q, unten = quelle, oben + 1
+    unten = oben + 1
     seg, schritte = werte(daten)
     ton = '5A6B7C' if blass else '1A2430'
-    leer = lambda ref: f'IF({ref}="","",{ref})'
 
     def num(v):
         return None if (v is None or v == '' or (isinstance(v, float) and pd.isna(v))) else float(v)
-
-    def merke(row, col, wert, ist_text=False):
-        cache.append((blattname, f'{L(col)}{row}', wert, ist_text))
 
     h = [num(daten.get(f'h{i}')) for i in range(1, 11)]
     zeit_num = num(daten.get('zeit'))
@@ -149,72 +144,48 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
     kurz_txt = kuerzel_runde(daten.get('runde'), daten.get('lauf'))
     datum_txt = daten.get('datum')
 
-    # Datum als fertigen Text statt Formel+Zahlenformat: eine Formel-Zelle mit
-    # dem Datumsformat "DD.MM.YYYY" wird in Numbers/iOS-Vorschau nicht korrekt
-    # ausgewertet (Grossbuchstaben-Tokens D/Y werden dort offenbar nicht als
-    # Datumscode erkannt und als literaler Text stehen gelassen - nur MM kam
-    # richtig durch: "DD.05.YYYY" statt "28.05.2026"). Ein fertig formatierter
-    # String ist unabhaengig von jeder Formel- oder Formatinterpretation.
+    # Alle sichtbaren Zellen dieser Zeile sind fertige Werte, keine Formeln
+    # auf "Rohdaten". Grund: weder ein injizierter Formel-Cache noch eine
+    # echte Formel wird von der iOS-"Vorschau" (Quick Look) zuverlaessig
+    # ausgewertet oder angezeigt - dort erscheint praktisch jede Formelzelle
+    # als 0, unabhaengig vom Cache. Excel, LibreOffice und die vollwertige
+    # Numbers-App rechnen zwar korrekt neu, aber Quick Look tut das nicht.
+    # Ein fertig berechneter Wert ist unabhaengig von jeder Formel- oder
+    # Neuberechnungs-Logik und damit ueberall garantiert korrekt sichtbar.
+    # Datum zusaetzlich als fertig formatierter Text (siehe fruehere Notiz zu
+    # Grossbuchstaben-Datumsformaten wie "DD.MM.YYYY").
     import datetime as _dt
     datum_str = ''
     if datum_txt:
         d = _dt.date.fromisoformat(str(datum_txt)) if isinstance(datum_txt, str) else datum_txt
         datum_str = d.strftime('%d.%m.%Y')
     ws.cell(oben, 1, datum_str)
-    ws.cell(oben, 2, f'={leer(rd(R_ORT, q))}')
-    if daten.get('ort'):
-        merke(oben, 2, daten.get('ort'), True)
-    ws.cell(oben, 3, f'={leer(rd(R_KURZ, q))}')
-    if kurz_txt:
-        merke(oben, 3, kurz_txt, True)
-    ws.cell(oben, 4, f'={leer(rd(R_BAHN, q))}')
-    if daten.get('bahn') not in (None, ''):
-        merke(oben, 4, num(daten.get('bahn')))
-    ws.cell(oben, 5, f'={leer(rd(R_RANG, q))}')
-    if daten.get('rang') not in (None, ''):
-        merke(oben, 5, num(daten.get('rang')))
+    ws.cell(oben, 2, daten.get('ort') or '')
+    ws.cell(oben, 3, kurz_txt or '')
+    bahn = num(daten.get('bahn'))
+    ws.cell(oben, 4, bahn if bahn is not None else '')
+    rang = num(daten.get('rang'))
+    ws.cell(oben, 5, rang if rang is not None else '')
 
-    ws.cell(oben, C_ZEIT, f'=IF({rd(R_STATUS, q)}<>"OK",{rd(R_STATUS, q)},{rd(R_ZEIT, q)})')
     if status != 'OK':
-        merke(oben, C_ZEIT, status, True)
-    elif zeit_num is not None:
-        merke(oben, C_ZEIT, zeit_num)
+        ws.cell(oben, C_ZEIT, status)
+    else:
+        ws.cell(oben, C_ZEIT, zeit_num if zeit_num is not None else '')
 
-    h5, h6 = rd(R_H5, q), rd(R_H6, q)
     m200 = None if h[4] is None or h[5] is None else h[4] + (h[5] - h[4]) * 14 / 35
-    ws.cell(oben, C_H200, f'=IF(OR({h5}="",{h6}=""),"",{h5}+({h6}-{h5})*14/35)')
-    if m200 is not None:
-        merke(oben, C_H200, round(m200, 4))
+    ws.cell(oben, C_H200, round(m200, 4) if m200 is not None else '')
 
     m400 = None if m200 is None or zeit_num is None else zeit_num - m200
-    ws.cell(oben, C_H400, f'=IF(OR({L(C_H200)}{oben}="",{rd(R_ZEIT, q)}=""),"",'
-                          f'{rd(R_ZEIT, q)}-{L(C_H200)}{oben})')
-    if m400 is not None:
-        merke(oben, C_H400, round(m400, 4))
+    ws.cell(oben, C_H400, round(m400, 4) if m400 is not None else '')
 
     diff = None if m200 is None or m400 is None else m400 - m200
-    ws.cell(oben, C_DIFF, f'=IF(OR({L(C_H200)}{oben}="",{L(C_H400)}{oben}=""),"",'
-                          f'{L(C_H400)}{oben}-{L(C_H200)}{oben})')
-    if diff is not None:
-        merke(oben, C_DIFF, round(diff, 4))
+    ws.cell(oben, C_DIFF, round(diff, 4) if diff is not None else '')
 
     for j in range(1, C_DIFF + 1):
         ws.merge_cells(start_row=oben, start_column=j, end_row=unten, end_column=j)
 
-    ws.cell(oben, C_SEG0, f'=IF({rd(R_H1, q)}="","",{rd(R_H1, q)})')
-    if h[0] is not None:
-        merke(oben, C_SEG0, h[0])
+    ws.cell(oben, C_SEG0, h[0] if h[0] is not None else '')
 
-    # Diese Zellen sind reine Anzeige (Segmentzeit + Zwischenzeit als Text
-    # "0.55 (6.88)") und werden bewusst NICHT als Formel geschrieben: das
-    # noetige TEXT()-plus-Verkettungs-Konstrukt wird von Apple Numbers und
-    # der iOS-Vorschau nicht zuverlaessig ausgewertet und faellt dort auf 0
-    # zurueck - selbst mit injiziertem Formel-Cache (siehe xlsx_cache.py,
-    # das fuer einfache Passthrough-Formeln wie Start-H1 oder die
-    # Schrittzahlen einwandfrei funktioniert, aber nicht fuer verschachtelte
-    # TEXT()-Formeln). Der Wert wird daher direkt und endgueltig als Text
-    # geschrieben; er bleibt dadurch nicht mit "Rohdaten" verknuepft, ist
-    # dafuer aber in jeder Anwendung korrekt sichtbar.
     for i in range(9):
         if h[i] is not None and h[i + 1] is not None:
             ws.cell(oben, C_SEG35_0 + i, f'{h[i+1]-h[i]:.2f} ({h[i+1]:.2f})')
@@ -228,10 +199,9 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
 
     s_namen = ['s_start'] + [f's{k}_{k+1}' for k in range(1, 10)]
     for i in range(10):
-        ws.cell(unten, C_SEG0 + i, f'={leer(rd(R_S0 + i, q))}')
         sv = daten.get(s_namen[i])
-        if sv not in (None, '') and not (isinstance(sv, float) and pd.isna(sv)):
-            merke(unten, C_SEG0 + i, int(float(sv)))
+        sv = None if (sv in (None, '') or (isinstance(sv, float) and pd.isna(sv))) else int(float(sv))
+        ws.cell(unten, C_SEG0 + i, sv if sv is not None else '')
 
     for j in range(1, BREIT + 1):
         c = ws.cell(oben, j)
@@ -265,36 +235,41 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
 
 
 def markiere_bestzeit(ws, oben, unten, breit):
-    """Legt einen goldenen Rahmen um den gesamten Rennblock (alle Spalten) und
-    faerbt die Faellung (Datum bis Diff, Spalten 1-9) golden ein.
+    """Setzt die Kommentarmarkierung der PB und liefert die gewuenschten
+    Rahmen/Fuellungen der PB-Zeile als Zellspezifikation zurueck (fuer
+    xlsx_cache.setze_rahmen_und_fuellung), statt sie direkt ueber openpyxl
+    zu setzen.
+
+    Grund: bei so vielen ueber zwei Zeilen verschmolzenen Zellen im Blatt
+    verwirft bzw. vertauscht openpyxl beim Speichern reproduzierbar den
+    Rahmen einzelner verschmolzener Zellen - im Python-Objekt korrekt, in
+    der gespeicherten Datei nicht mehr. baue() patcht die Werte darum nach
+    dem Speichern direkt im XML, das ist zuverlaessig.
 
     Die Spalten 1-9 sind je Rennen ueber oben+unten zu einer sichtbaren Zelle
-    verschmolzen (siehe rennblock). Numbers/iOS-Vorschau uebernehmen bei
-    einer verschmolzenen Zelle offenbar nur den Rahmen der Ankerzelle (oben)
-    fuer die gesamte sichtbare Flaeche - ein Rahmen, der nur auf der
-    "unsichtbaren" unteren Zelle gesetzt ist, geht dort verloren. Darum
-    bekommt bei diesen Spalten die Ankerzelle direkt den kompletten Rahmen
-    (oben UND unten), statt ihn wie bei den echten zweizeiligen
-    Abschnittsspalten auf zwei Zellen aufzuteilen.
+    verschmolzen (siehe rennblock). Excel bildet den sichtbaren Aussenrand
+    einer verschmolzenen Zelle aus den Randzellen des Bereichs (oben liefert
+    die obere Kante, unten die untere usw.), Numbers zeigt teils die "zweite
+    Haelfte" separat mit eigenem Rahmen. Darum bekommen bei diesen Spalten
+    beide Zellen (oben und unten) denselben vollstaendigen Rahmen.
     """
+    GOLD_SEITE = ('medium', '00' + GOLD)
+    GRAU_SEITE = ('thin', '00' + RAND)
+    zellen = {}
     for j in range(1, breit + 1):
-        links = gold if j == 1 else None
-        rechts = gold if j == breit else None
+        links = GOLD_SEITE if j == 1 else GRAU_SEITE
+        rechts = GOLD_SEITE if j == breit else GRAU_SEITE
+        fuellung = GOLD_HELL if j <= C_DIFF else None
         if j <= C_DIFF:
-            c = ws.cell(oben, j)
-            alt = c.border
-            c.border = Border(left=links or alt.left, right=rechts or alt.right,
-                               top=gold, bottom=gold)
+            for r in (oben, unten):
+                zellen[f'{L(j)}{r}'] = dict(left=links, right=rechts,
+                                             top=GOLD_SEITE, bottom=GOLD_SEITE, fill=fuellung)
         else:
-            for r, kante in ((oben, 'top'), (unten, 'bottom')):
-                c = ws.cell(r, j)
-                alt = c.border
-                c.border = Border(
-                    left=links or alt.left, right=rechts or alt.right,
-                    top=gold if kante == 'top' else alt.top,
-                    bottom=gold if kante == 'bottom' else alt.bottom)
-    for j in range(1, C_DIFF + 1):
-        ws.cell(oben, j).fill = PatternFill('solid', fgColor=GOLD_HELL)
+            zellen[f'{L(j)}{oben}'] = dict(left=links, right=rechts, top=GOLD_SEITE, bottom=None)
+            zellen[f'{L(j)}{unten}'] = dict(left=links, right=rechts, top=None, bottom=GOLD_SEITE)
+    kopf = ws.cell(oben, 1)
+    kopf.comment = Comment('Persönliche Bestzeit', 'Auswertung')
+    return zellen
     kopf = ws.cell(oben, 1)
     kopf.comment = Comment('Persönliche Bestzeit', 'Auswertung')
 
@@ -358,11 +333,10 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
 
     z = 9
     saison_zeilen, block_von = [], {}
-    formel_cache = []
     for _, r in lauf.iterrows():
         saison_zeilen.append(z)
         block_von[r['race_id']] = z
-        z = rennblock(ws, 'Saison', z, idx[r['race_id']], r, formel_cache)
+        z = rennblock(ws, 'Saison', z, r)
 
     if not vgl.empty:
         z += 1
@@ -372,12 +346,13 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
         z += 1
         for _, r in vgl.iterrows():
             block_von[r['race_id']] = z
-            z = rennblock(ws, 'Saison', z, idx[r['race_id']], r, formel_cache, blass=True)
+            z = rennblock(ws, 'Saison', z, r, blass=True)
     letzte = z - 1
 
+    pb_rahmen = {}
     if pb_id and pb_id in block_von:
         o = block_von[pb_id]
-        markiere_bestzeit(ws, o, o + 1, BREIT)
+        pb_rahmen = markiere_bestzeit(ws, o, o + 1, BREIT)
 
     # ---------- Bezeichner fuer die Diagrammlegenden ----------
     # Auch hier bewusst als fertiger Text statt TEXT()-Verkettungsformel
@@ -544,14 +519,14 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
     ws.print_title_rows = '7:8'
     ws.print_area = f'A1:{L(BREIT)}{letzte}'
 
-    # Formeln zwischenspeichern (openpyxl selbst laesst <v> leer; Excel und
-    # LibreOffice rechnen beim Oeffnen ohnehin neu, aber Apple Numbers zeigt
-    # sonst 0 statt der echten Werte - siehe xlsx_cache.py).
+    # Rahmen/Faellung der PB-Zeile direkt im XML setzen (siehe
+    # markiere_bestzeit()/xlsx_cache.py: openpyxl selbst verwirft das beim
+    # Speichern zuverlaessig bei so vielen verschmolzenen Zellen im Blatt).
     puffer = io.BytesIO()
     wb.save(puffer)
-    fertig = injiziere_cache_werte(puffer.getvalue(), {'Saison': {
-        ref: (wert, ist_text) for blatt, ref, wert, ist_text in formel_cache if blatt == 'Saison'
-    }})
+    fertig = puffer.getvalue()
+    if pb_rahmen:
+        fertig = setze_rahmen_und_fuellung(fertig, 'Saison', pb_rahmen)
     if hasattr(ziel, 'write'):
         ziel.write(fertig)
     else:
