@@ -18,9 +18,10 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent / 'skripte'))
 
 from master_io import load_master                                  # noqa: E402
-from auswertung import select_season, segmente, label, abschnittsbezeichnung  # noqa: E402
+from auswertung import select_season, label                        # noqa: E402
 from export_utils import xlsx_bytes, pdf_bytes, pdf_bytes_auswahl        # noqa: E402
 from pdf_export import grafik_rueckstand, grafik_ermuedung          # noqa: E402
+from html_tabelle import rennen_tabelle_html                        # noqa: E402
 
 DATA_FILE = Path(__file__).parent / 'data' / 'master.csv'
 
@@ -64,22 +65,12 @@ def kpi_zeile(auswahl, lauf):
     c5.metric('Beendet', str(int((lauf['status'] == 'OK').sum())))
 
 
-def rennen_tabelle(rennen, pb_id):
-    """Eine kompakte Zeile pro Rennen, mit Abschnitten und Schritten als Text."""
-    zeilen = []
-    for _, r in rennen.iterrows():
-        seg, schritte = segmente(r)
-        zeit = str(r['status']) if r['status'] != 'OK' else f"{r['zeit']:.2f}"
-        zeilen.append({
-            'PB': '🏅' if r['race_id'] == pb_id else '',
-            'Datum': pd.to_datetime(r['datum']).strftime('%d.%m.%Y') if pd.notna(r['datum']) else '',
-            'Ort': r['ort'], 'Runde': r['runde'] or '', 'Bahn': r['bahn'], 'Rang': r['rang'],
-            'Zeit': zeit,
-            'Abschnitte (s)': '  '.join(f'{v:.2f}' if v is not None else '·' for v in seg),
-            'Schritte': '  '.join(f'{v:d}' if v is not None else '·' for v in schritte),
-        })
-    df = pd.DataFrame(zeilen)
-    st.dataframe(df, width='stretch', hide_index=True)
+def rennen_tabelle(rennen, pb_id, vgl=False):
+    """Tabelle im PDF-/Excel-Layout: zwei Zeilen pro Rennen, Abschnitte und
+    Schritte je Huerdenabschnitt in eigenen Spalten, PB goldumrandet."""
+    html = rennen_tabelle_html(rennen, pb_id, vgl=vgl)
+    if html:
+        st.markdown(html, unsafe_allow_html=True)
 
 
 def tab_athlet(master):
@@ -109,7 +100,7 @@ def tab_athlet(master):
     if not auswahl['vgl'].empty:
         st.subheader('Vergleich frühere Jahre')
         st.caption('Bestes Rennen je Saison, neuestes zuerst')
-        rennen_tabelle(auswahl['vgl'], auswahl['pb_id'])
+        rennen_tabelle(auswahl['vgl'], auswahl['pb_id'], vgl=True)
 
     st.subheader('Grafiken')
     col1, col2 = st.columns(2)
