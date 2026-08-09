@@ -263,7 +263,9 @@ def baue_pdf(master, athlet, saison, vergleiche=4):
             stil.append(('TEXTCOLOR', (0, r0), (-1, r0), VERGLEICH_TEXT))
             stil.append(('FONTNAME', (0, r0), (1, r0), 'Helvetica-Oblique'))
         if ist_pb:
-            stil.append(('BOX', (0, r0), (-1, r0 + 1), 1.4, GOLD))
+            # Rahmen nur ueber RENNEN+ERGEBNIS (bis Spalte 9 "Diff"), analog
+            # zum Excel-Export - nicht ueber die Abschnittsspalten hinweg.
+            stil.append(('BOX', (0, r0), (8, r0 + 1), 1.4, GOLD))
             stil.append(('BACKGROUND', (0, r0), (1, r0 + 1), GOLD_HELL))
     if vgl_kopf_idx is not None:
         stil.append(('SPAN', (0, vgl_kopf_idx), (-1, vgl_kopf_idx)))

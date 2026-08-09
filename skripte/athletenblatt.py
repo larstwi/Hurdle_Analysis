@@ -204,20 +204,26 @@ def rennblock(ws, blattname, oben, quelle, daten, cache, blass=False):
     if h[0] is not None:
         merke(oben, C_SEG0, h[0])
 
+    # Diese Zellen sind reine Anzeige (Segmentzeit + Zwischenzeit als Text
+    # "0.55 (6.88)") und werden bewusst NICHT als Formel geschrieben: das
+    # noetige TEXT()-plus-Verkettungs-Konstrukt wird von Apple Numbers und
+    # der iOS-Vorschau nicht zuverlaessig ausgewertet und faellt dort auf 0
+    # zurueck - selbst mit injiziertem Formel-Cache (siehe xlsx_cache.py,
+    # das fuer einfache Passthrough-Formeln wie Start-H1 oder die
+    # Schrittzahlen einwandfrei funktioniert, aber nicht fuer verschachtelte
+    # TEXT()-Formeln). Der Wert wird daher direkt und endgueltig als Text
+    # geschrieben; er bleibt dadurch nicht mit "Rohdaten" verknuepft, ist
+    # dafuer aber in jeder Anwendung korrekt sichtbar.
     for i in range(9):
-        a, b = rd(R_H1 + i, q), rd(R_H1 + i + 1, q)
-        # Segmentzeit (b-a) plus Zwischenzeit seit Start in Klammern (b) -
-        # letztere steht schon in den Rohdaten, wird hier nur mit angezeigt.
-        ws.cell(oben, C_SEG35_0 + i, f'=IF(OR({a}="",{b}=""),"",'
-                                     f'TEXT({b}-{a},"0.00")&" ("&TEXT({b},"0.00")&")")')
         if h[i] is not None and h[i + 1] is not None:
-            merke(oben, C_SEG35_0 + i, f'{h[i+1]-h[i]:.2f} ({h[i+1]:.2f})', True)
+            ws.cell(oben, C_SEG35_0 + i, f'{h[i+1]-h[i]:.2f} ({h[i+1]:.2f})')
+        else:
+            ws.cell(oben, C_SEG35_0 + i, '')
 
-    h10, zeit = rd(R_H10, q), rd(R_ZEIT, q)
-    ws.cell(oben, C_SEGZ, f'=IF(OR({h10}="",{zeit}=""),"",'
-                          f'TEXT({zeit}-{h10},"0.00")&" ("&TEXT({zeit},"0.00")&")")')
     if h[9] is not None and zeit_num is not None:
-        merke(oben, C_SEGZ, f'{zeit_num-h[9]:.2f} ({zeit_num:.2f})', True)
+        ws.cell(oben, C_SEGZ, f'{zeit_num-h[9]:.2f} ({zeit_num:.2f})')
+    else:
+        ws.cell(oben, C_SEGZ, '')
 
     s_namen = ['s_start'] + [f's{k}_{k+1}' for k in range(1, 10)]
     for i in range(10):
@@ -351,16 +357,22 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
 
     if pb_id and pb_id in block_von:
         o = block_von[pb_id]
-        markiere_bestzeit(ws, o, o + 1, BREIT)
+        markiere_bestzeit(ws, o, o + 1, C_DIFF)
 
     # ---------- Bezeichner fuer die Diagrammlegenden ----------
+    # Auch hier bewusst als fertiger Text statt TEXT()-Verkettungsformel
+    # geschrieben (gleicher Grund wie bei den Abschnittszellen oben) -
+    # sonst zeigen die Diagrammlegenden in Numbers/Vorschau nichts an.
     kopfzelle(roh, f'{L(R_LABEL)}1', 'legende', groesse=9)
     roh.column_dimensions[L(R_LABEL)].width = 24
+    label_von = {}
     for _, r in reihenfolge.iterrows():
         q = idx[r['race_id']]
-        c = roh.cell(q, R_LABEL,
-                     f'=TEXT({L(R_DATUM)}{q},"DD.MM.")&" "&{L(R_ORT)}{q}'
-                     f'&IF({L(R_KURZ)}{q}=""," "," "&{L(R_KURZ)}{q})')
+        kurz = kuerzel_runde(r['runde'], r['lauf'])
+        datum_txt = pd.to_datetime(r['datum']).strftime('%d.%m.') if r.get('datum') else ''
+        label = f"{datum_txt} {r['ort']}" + (f' {kurz}' if kurz else ' ')
+        label_von[r['race_id']] = label
+        c = roh.cell(q, R_LABEL, label)
         c.font = Font(name=ARIAL, size=9)
 
     # ---------- Rechenblatt fuer die Kurven ----------
@@ -455,7 +467,7 @@ def baue(master, athlet, saison, ziel, vergleiche=4):
         zeilen = []
         for rid in race_ids:
             r0 = lbl_lauf[0]
-            gr.cell(r0, lbl_sp, f'={rd(R_LABEL, idx[rid])}').font = Font(name=ARIAL, size=9)
+            gr.cell(r0, lbl_sp, label_von.get(rid, '')).font = Font(name=ARIAL, size=9)
             zeilen.append(r0)
             lbl_lauf[0] += 1
         gr.column_dimensions[L(lbl_sp)].width = 24
