@@ -27,11 +27,12 @@ SPALTEN_ABSCHNITT = ['Start–H1'] + [f'H{i}–H{i+1}' for i in range(1, 10)] + 
 
 _CSS = f"""
 <style>
-.rtab-wrap {{ overflow-x: auto; margin-bottom: 0.5rem; }}
+.rtab-wrap {{ overflow-x: auto; margin-bottom: 0.5rem; background: #ffffff;
+              border-radius: 4px; padding: 1px; }}
 table.rtab {{ border-collapse: collapse; width: 100%; font-family: Arial, Helvetica, sans-serif;
-              font-size: 12.5px; color: #1A2430; }}
+              font-size: 12.5px; color: #1A2430; background: #ffffff; }}
 table.rtab th, table.rtab td {{ border: 1px solid {RAND}; padding: 4px 7px; text-align: center;
-                                 white-space: nowrap; }}
+                                 white-space: nowrap; background: #ffffff; color: #1A2430; }}
 table.rtab td.left {{ text-align: left; }}
 table.rtab tr.grp th {{ background: {TINTE}; color: white; font-weight: 700; font-size: 12px;
                          padding: 5px 7px; }}
@@ -42,6 +43,7 @@ table.rtab tr.vgl td {{ font-style: italic; color: {VERGLEICH_TEXT}; }}
 table.rtab tr.vgl.r2 td {{ font-style: italic; }}
 table.rtab tr.pb.r1 td {{ border-top: 2px solid {GOLD}; }}
 table.rtab tr.pb.r2 td {{ border-bottom: 2px solid {GOLD}; }}
+table.rtab tr.pb.r1 td:nth-child(-n+9) {{ border-bottom: 2px solid {GOLD}; }}
 table.rtab tr.pb.r1 td:first-child {{ border-left: 2px solid {GOLD}; }}
 table.rtab tr.pb.r1 td:last-child, table.rtab tr.pb.r2 td:last-child {{
     border-right: 2px solid {GOLD}; }}
